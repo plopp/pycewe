@@ -7,7 +7,7 @@ import curses.ascii as ascii
 import time
 
 PORT = 10001
-ADDRESS = "192.168.0.50"
+ADDRESS = "192.168.1.3"
 
 SOH = "\x01"
 STX = "\x02"
@@ -73,7 +73,7 @@ def send_without_recv(bytes):
     #print "Sending: ",data
 
     bytes = prettify(data)
-    print >>sys.stderr, 'sending "%s"' % bytes
+    #print >>sys.stderr, 'sending "%s"' % bytes
 
 def send(bytes):
     send_without_recv(bytes)
@@ -194,13 +194,43 @@ def ans_to_list(data):
 def metertime_to_time(timelist):
     #Should convert ["yyyymmdd","hhmmss"] to
     #linux epoch in milliseconds
-    raise Exception("Not implemented yet!")
+    #raise Exception("Not implemented yet!")
     return time.time()*1000
-def send_to_db(datalist):
-    raise Exception("Not implemented yet!")
-    
+
+def send_to_db(doc, creds):
+    url = ('%(server)s' % creds)
+    request = urllib2.Request(url, data=json.dumps(doc))
+    auth = base64.encodestring('%(user)s:%(passw)' % creds).replace('\n', '')
+    request.add_header('Authorization', 'Basic ' + auth)
+    request.add_header('Content-Type', 'application/json')
+    request.get_method = lambda: 'POST'
+    urllib2.urlopen(request, timeout=1)    
     
 def main():
+
+    passw = ""
+    user = ""
+    url = ""
+
+    #There is got to be a text file named ".credentials" in the same folder as the
+    #pythons script, containg: <user>,<passw>,<url_to_database>
+    #example: user1,password1,https://domain/database
+    with open('.credentials', 'r') as f:
+        read_data = f.read()
+        print read_data
+        creds = read_data.split(',')
+        user = creds[0]
+        passw = creds[1]
+        url = creds[2].replace('\n','')
+
+    credentials = {
+      'user': user,
+      'password': passw,
+      'server': url
+    }
+
+    print credentials
+
     setup_socket()
     connect()
     try:    
@@ -210,7 +240,7 @@ def main():
         send([SOH,"P2",STX,"(AAAAAA)",ETX]) #<SOH>P2<STX>(ABCDEF)<ETX><BCC>
         timeans = send([SOH,"R1",STX,"100C00(1)",ETX])
         metertime =  ans_to_list(timeans)
-        time = {
+        timedict = {
             "Meter time":metertime_to_time(metertime),
             "System time":time.time()*1000
         }
@@ -289,11 +319,15 @@ def main():
             "Secondary nominal voltage (V)":data2[44],
             "Secondary nominal current (A)":data2[45]
         }
-        
+        print info2
         #Read temperature
         temp = send([SOH,"R1",STX,"100700(1)",ETX])
         tempdata = ans_to_list(temp)
-        send_to_db([time,info1,info2,temp])
+        temperaturedict = {
+            "Temperature (°C)":tempdata[0]
+        }
+        print temperaturedict
+        send_to_db([timedict,info1,info2,temp],credentials)
 
         #send('END') 
         print "Done."
