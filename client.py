@@ -5,6 +5,9 @@ import socket
 import sys
 import curses.ascii as ascii
 import time
+import base64
+import json
+import urllib2
 
 PORT = 10001
 ADDRESS = "192.168.1.3"
@@ -200,7 +203,7 @@ def metertime_to_time(timelist):
 def send_to_db(doc, creds):
     url = ('%(server)s' % creds)
     request = urllib2.Request(url, data=json.dumps(doc))
-    auth = base64.encodestring('%(user)s:%(passw)' % creds).replace('\n', '')
+    auth = base64.encodestring('%(user)s:%(passw)s' % creds).replace("\n","")
     request.add_header('Authorization', 'Basic ' + auth)
     request.add_header('Content-Type', 'application/json')
     request.get_method = lambda: 'POST'
@@ -225,7 +228,7 @@ def main():
 
     credentials = {
       'user': user,
-      'password': passw,
+      'passw': passw,
       'server': url
     }
 
