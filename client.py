@@ -9,6 +9,8 @@ import base64
 import json
 import urllib2
 
+import couchdb
+
 PORT = 10001
 ADDRESS = "192.168.1.3"
 
@@ -26,6 +28,19 @@ server_address = ""
 s = ""
 
 PASSWORD = "(ABCDEF)"
+
+couch = None
+db = None
+
+def setup_couchdb(credentials):
+   global couch
+   global db
+   print "Server:","%(server)s" % credentials
+   print "User:","%(user)s" % credentials
+   print "Password:","%(passw)s" % credentials
+   couch = couchdb.Server("%(server)s" % credentials)
+   couch.resource.credentials = ('%(user)s' % credentials,"%(passw)s" % credentials)
+   db = couch['giraff'] # existing
 
 def setup_socket():
     global s,server_address
@@ -200,8 +215,11 @@ def metertime_to_time(timelist):
     #raise Exception("Not implemented yet!")
     return time.time()*1000
 
+def send_to_db2(doc):
+    db.save(doc)
+
 def send_to_db(doc, creds):
-    url = ('%(server)s' % creds)
+    url = ('%(server)s/%(db)s' % creds)
     request = urllib2.Request(url, data=json.dumps(doc))
     auth = base64.encodestring('%(user)s:%(passw)s' % creds).replace("\n","")
     request.add_header('Authorization', 'Basic ' + auth)
@@ -224,16 +242,19 @@ def main():
         creds = read_data.split(',')
         user = creds[0]
         passw = creds[1]
-        url = creds[2].replace('\n','')
+        url = creds[2]
+        db = creds[3].replace('\n','')
+
 
     credentials = {
       'user': user,
       'passw': passw,
-      'server': url
+      'server': url,
+      'db': db
     }
 
     print credentials
-
+    setup_couchdb(credentials)
     setup_socket()
     connect()
     try:    
@@ -243,12 +264,18 @@ def main():
         send([SOH,"P2",STX,"(AAAAAA)",ETX]) #<SOH>P2<STX>(ABCDEF)<ETX><BCC>
         timeans = send([SOH,"R1",STX,"100C00(1)",ETX])
         metertime =  ans_to_list(timeans)
+        data1ans = send([SOH,"R1",STX,"100800(1)",ETX])
+        data1 =  ans_to_list(data1ans)
+        data2ans = send([SOH,"R1",STX,"015200(1)",ETX])
+        data2 = ans_to_list(data2ans)
+        temp = send([SOH,"R1",STX,"100700(1)",ETX])
+        tempdata = ans_to_list(temp)
+
         timedict = {
             "Meter time":metertime_to_time(metertime),
             "System time":time.time()*1000
         }
-        data1ans = send([SOH,"R1",STX,"100800(1)",ETX])
-        data1 =  ans_to_list(data1ans)
+
         info1 = {
             "Active energy imp. (Wh)": data1[0],
             "Active energy exp. (Wh)": data1[1],
@@ -270,8 +297,6 @@ def main():
             "Active energy exp. L3 (Wh)": data1[17]
         }
         print info1        
-        ans = send([SOH,"R1",STX,"015200(1)",ETX])
-        data2 = ans_to_list(ans)
         #Import is positive, export is negative
         #For THD 1.0 represents 100%
         info2 = {
@@ -324,13 +349,15 @@ def main():
         }
         print info2
         #Read temperature
-        temp = send([SOH,"R1",STX,"100700(1)",ETX])
-        tempdata = ans_to_list(temp)
         temperaturedict = {
             "Temperature (°C)":tempdata[0]
         }
         print temperaturedict
-        send_to_db([timedict,info1,info2,temp],credentials)
+        #send_to_db2([timedict,info1,info2,temp])
+        data = {
+            "wind":info1
+        }
+        send_to_db2(info1)
 
         #send('END') 
         print "Done."
