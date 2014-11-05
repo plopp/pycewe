@@ -249,16 +249,10 @@ def send_to_db(doc, creds):
     urllib2.urlopen(request, timeout=1)    
 
 def read_data(q,reply_q):
-    print "Running read_data"
-    address = q.get()
-    socketlist = setup_socket(address)
-    s = socketlist[0]
-    connect(s,socketlist[1])   
+    #print "Running read_data"
+    s = q.get()   
     # Send data
-    print "Sending data"
-    send(s,'/?!\r\n')
-    send(s,[ACK,"051\r\n"]) #050 Data readout,#051 programming mode
-    send(s,[SOH,"P2",STX,"(AAAAAA)",ETX]) #<SOH>P2<STX>(ABCDEF)<ETX><BCC>
+    #print "Sending data"
 
     timeans = send(s,[SOH,"R1",STX,"100C00(1)",ETX])
     metertime =  ans_to_list_str(timeans)
@@ -337,9 +331,7 @@ def read_data(q,reply_q):
         "Secondary nominal current (A)":data2[45],
         "Temperature (C)":tempdata[0]
     }
-    send_without_recv(s,[SOH,"B0",ETX])
-    reply_q.put([address,data])
-    s.close()
+    reply_q.put([s,data])
     q.task_done()
 
 def main():
@@ -373,46 +365,71 @@ def main():
     addr_q = Queue.Queue()
     reply_q = Queue.Queue()
 
-    while True:
-        thread1 = threading.Thread(target=read_data,args=(addr_q,reply_q,))
-        thread2 = threading.Thread(target=read_data,args=(addr_q,reply_q,))
-        thread1.daemon = True
-        thread2.daemon = True
-        thread1.start()
-        thread2.start()
+    #address = q.get()
+
+    socketlist = setup_socket("192.168.1.3")
+    s1 = socketlist[0]
+    connect(s1,socketlist[1])
+
+    socketlist = setup_socket("192.168.1.4")
+    s2 = socketlist[0]
+    connect(s2,socketlist[1])
+
+    send(s1,'/?!\r\n')
+    send(s1,[ACK,"051\r\n"]) #050 Data readout,#051 programming mode
+    send(s1,[SOH,"P2",STX,"(AAAAAA)",ETX]) #<SOH>P2<STX>(ABCDEF)<ETX><BCC>
+
+    send(s2,'/?!\r\n')
+    send(s2,[ACK,"051\r\n"]) #050 Data readout,#051 programming mode
+    send(s2,[SOH,"P2",STX,"(AAAAAA)",ETX]) #<SOH>P2<STX>(ABCDEF)<ETX><BCC>
 
 
-        print "Adding to queue"
-        addr_q.put("192.168.1.3")
-        print "Adding to queue"
-        addr_q.put("192.168.1.4")
-        print "Waiting"
-        addr_q.join()
-        print "Parsing"
-        first = reply_q.get(block=True)
-        print "Got 1st"
-        second = reply_q.get(block=True)
-        print "Got 2nd"
+    try:
+        while True:
+            thread1 = threading.Thread(target=read_data,args=(addr_q,reply_q,))
+            thread2 = threading.Thread(target=read_data,args=(addr_q,reply_q,))
+            thread1.daemon = True
+            thread2.daemon = True
+            thread1.start()
+            thread2.start()
 
-        if first[0] == "192.168.1.3":
-            wind = first[1]
-            solar = second[1]
-        else:
-            wind = second[1]
-            solar = first[1]
 
-        try:
-            data = {
-                "wind":wind,
-                "solar":solar,
-                "timestamp":int(time.time()*1000)
-            }
-            send_to_db2(data)
+            print "Adding to queue"
+            addr_q.put(s1)
+            print "Adding to queue"
+            addr_q.put(s2)
+            print "Waiting"
+            addr_q.join()
+            print "Parsing"
+            first = reply_q.get(block=True)
+            print "Got 1st"
+            second = reply_q.get(block=True)
+            print "Got 2nd"
+
+            print first
+            print second
+        #if first[0] == "192.168.1.3":
+        #    wind = first[1]
+        #    solar = second[1]
+        #else:
+        #    wind = second[1]
+        #    solar = first[1]
+
+        #try:
+        #    data = {
+        #        "wind":wind,
+        #        "solar":solar,
+        #        "timestamp":int(time.time()*1000)
+        #    }
+        #    send_to_db2(data)
 
             #send('END') 
             print "Done."
-        finally:
-            print "One lap"
+    finally:
+        send_without_recv(s1,[SOH,"B0",ETX])
+        send_without_recv(s2,[SOH,"B0",ETX])
+        s1.close()
+        s2.close()
             #return
             #print >>sys.stderr, 'closing socket'
             #s.close()
