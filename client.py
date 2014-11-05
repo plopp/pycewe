@@ -11,8 +11,7 @@ import urllib2
 import datetime
 import couchdb
 
-PORT = 10001
-ADDRESS = "192.168.1.3"
+PORT = 10001 #Electricity meter port
 
 SOH = "\x01"
 STX = "\x02"
@@ -39,13 +38,16 @@ def setup_couchdb(credentials):
    couch.resource.credentials = ('%(user)s' % credentials,"%(passw)s" % credentials)
    db = couch['giraff'] # existing
 
-def setup_socket():
-    global s,server_address
+def setup_socket(address):
+    global s
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_address = (ADDRESS, PORT)
+    server_address = (address, PORT)
     print "Client listening on: ",server_address
-def connect():
-    s.connect(server_address)
+    return server_address
+
+def connect(addr_tuple):
+    print "DEBUG: ",addr_tuple
+    s.connect(addr_tuple)
     s.setblocking(0)
 
 def prettify(bytes):
@@ -247,7 +249,95 @@ def send_to_db(doc, creds):
     request.add_header('Content-Type', 'application/json')
     request.get_method = lambda: 'POST'
     urllib2.urlopen(request, timeout=1)    
-    
+
+def read_data(address):
+    addr_tuple = setup_socket(address)
+    connect(addr_tuple)   
+    # Send data
+    send('/?!\r\n')
+    send([ACK,"051\r\n"]) #050 Data readout,#051 programming mode
+    send([SOH,"P2",STX,"(AAAAAA)",ETX]) #<SOH>P2<STX>(ABCDEF)<ETX><BCC>
+    timeans = send([SOH,"R1",STX,"100C00(1)",ETX])
+    metertime =  ans_to_list_str(timeans)
+    data1ans = send([SOH,"R1",STX,"100800(1)",ETX])
+    data1 =  ans_to_list(data1ans)
+    data2ans = send([SOH,"R1",STX,"015200(1)",ETX])
+    data2 = ans_to_list(data2ans)
+    temp = send([SOH,"R1",STX,"100700(1)",ETX])
+    tempdata = ans_to_list(temp)
+
+    data = {
+        "Meter time":metertime_to_time(metertime),
+        "Active energy imp. (Wh)": data1[0],
+        "Active energy exp. (Wh)": data1[1],
+        "Reactive energy QI (varh)": data1[2],
+        "Reactive energy QII (varh)": data1[3],
+        "Reactive energy QIII (varh)": data1[4],
+        "Reactive energy QIV (varh)": data1[5],
+        "Apparent energy imp. (V Ah)": data1[6],
+        "Apparent energy exp. (V Ah)": data1[7],
+        "Reactive energy imp. (varh)": data1[8],
+        "Reactive energy exp. (varh)": data1[9],
+        "Reactive energy ind. (varh)": data1[10],
+        "Reactive energy cap. (varh)": data1[11],
+        "Active energy imp. L1 (Wh)": data1[12],
+        "Active energy imp. L2 (Wh)": data1[13],
+        "Active energy imp. L3 (Wh)": data1[14],
+        "Active energy exp. L1 (Wh)": data1[15],
+        "Active energy exp. L2 (Wh)": data1[16],
+        "Active energy exp. L3 (Wh)": data1[17],
+        "Phase voltage L1 (V)":data2[0],
+        "Phase voltage L2 (V)":data2[1],
+        "Phase voltage L3 (V)":data2[2],
+        "Main voltage L1-L2 (V)":data2[3],
+        "Main voltage L2-L3 (V)":data2[4],
+        "Main voltage L3-L1 (V)":data2[5],
+        "Current L1 (A)":data2[6],
+        "Current L2 (A)":data2[7],
+        "Current L3 (A)":data2[8],
+        "Phase symmetry voltage L1 (rad)":data2[9],
+        "Phase symmetry voltage L2 (rad)":data2[10],
+        "Phase symmetry voltage L3 (rad)":data2[11],
+        "Phase symmetry current L1 (rad)":data2[12],
+        "Phase symmetry current L1 (rad)":data2[13],
+        "Phase symmetry current L1 (rad)":data2[14],
+        "Phase angle L1 (rad)":data2[15],
+        "Phase angle L2 (rad)":data2[16],
+        "Phase angle L3 (rad)":data2[17],
+        "Power factor L1":data2[18],
+        "Power factor L2":data2[19],
+        "Power factor L3":data2[20],
+        "Active power L1 (W)":data2[21],
+        "Active power L2 (W)":data2[22],
+        "Active power L3 (W)":data2[23],
+        "Reactive power L1 (var)":data2[24],
+        "Reactive power L2 (var)":data2[25],
+        "Reactive power L3 (var)":data2[26],
+        "Apparent power L1 (VA)":data2[27],
+        "Apparent power L2 (VA)":data2[28],
+        "Apparent power L3 (VA)":data2[29],
+        "THD Voltage L1 (0.0-1.0)":data2[30],
+        "THD Voltage L2 (0.0-1.0)":data2[31],
+        "THD Voltage L3 (0.0-1.0)":data2[32],
+        "THD Current L1 (0.0-1.0)":data2[33],
+        "THD Current L2 (0.0-1.0)":data2[34],
+        "THD Current L3 (0.0-1.0)":data2[35],
+        "Total active power (W)":data2[36],
+        "Total reactive power (var)":data2[37],
+        "Total apparent power (VA)":data2[38],
+        "Total power factor":data2[39],
+        "Total phase angle":data2[40],
+        "Frequency":data2[41],
+        "VT ratio":data2[42],
+        "CT ratio":data2[43],
+        "Secondary nominal voltage (V)":data2[44],
+        "Secondary nominal current (A)":data2[45],
+        "Temperature (C)":tempdata[0]
+    }
+    send_without_recv([SOH,"B0",ETX])
+    s.close()
+    return data
+
 def main():
 
     passw = ""
@@ -258,9 +348,9 @@ def main():
     #pythons script, containg: <user>,<passw>,<url_to_database>
     #example: user1,password1,https://domain/database
     with open('.credentials', 'r') as f:
-        read_data = f.read()
+        file_data = f.read()
         #print read_data
-        creds = read_data.split(',')
+        creds = file_data.split(',')
         user = creds[0]
         passw = creds[1]
         url = creds[2]
@@ -276,183 +366,19 @@ def main():
 
     #print credentials
     setup_couchdb(credentials)
-    setup_socket()
-    connect()
-    try:    
-        # Send data
-        send('/?!\r\n')
-        send([ACK,"051\r\n"]) #050 Data readout,#051 programming mode
-        send([SOH,"P2",STX,"(AAAAAA)",ETX]) #<SOH>P2<STX>(ABCDEF)<ETX><BCC>
-        timeans = send([SOH,"R1",STX,"100C00(1)",ETX])
-        metertime =  ans_to_list_str(timeans)
-        data1ans = send([SOH,"R1",STX,"100800(1)",ETX])
-        data1 =  ans_to_list(data1ans)
-        data2ans = send([SOH,"R1",STX,"015200(1)",ETX])
-        data2 = ans_to_list(data2ans)
-        temp = send([SOH,"R1",STX,"100700(1)",ETX])
-        tempdata = ans_to_list(temp)
-
-        timedict = {
-            "Meter time":metertime_to_time(metertime),
-            "System time":time.time()*1000
-        }
-
-        info1 = {
-            "Active energy imp. (Wh)": data1[0],
-            "Active energy exp. (Wh)": data1[1],
-            "Reactive energy QI (varh)": data1[2],
-            "Reactive energy QII (varh)": data1[3],
-            "Reactive energy QIII (varh)": data1[4],
-            "Reactive energy QIV (varh)": data1[5],
-            "Apparent energy imp. (V Ah)": data1[6],
-            "Apparent energy exp. (V Ah)": data1[7],
-            "Reactive energy imp. (varh)": data1[8],
-            "Reactive energy exp. (varh)": data1[9],
-            "Reactive energy ind. (varh)": data1[10],
-            "Reactive energy cap. (varh)": data1[11],
-            "Active energy imp. L1 (Wh)": data1[12],
-            "Active energy imp. L2 (Wh)": data1[13],
-            "Active energy imp. L3 (Wh)": data1[14],
-            "Active energy exp. L1 (Wh)": data1[15],
-            "Active energy exp. L2 (Wh)": data1[16],
-            "Active energy exp. L3 (Wh)": data1[17]
-        }
-        #print info1        
-        #Import is positive, export is negative
-        #For THD 1.0 represents 100%
-        info2 = {
-            "Phase voltage L1 (V)":data2[0],
-            "Phase voltage L2 (V)":data2[1],
-            "Phase voltage L3 (V)":data2[2],
-            "Main voltage L1-L2 (V)":data2[3],
-            "Main voltage L2-L3 (V)":data2[4],
-            "Main voltage L3-L1 (V)":data2[5],
-            "Current L1 (A)":data2[6],
-            "Current L2 (A)":data2[7],
-            "Current L3 (A)":data2[8],
-            "Phase symmetry voltage L1 (rad)":data2[9],
-            "Phase symmetry voltage L2 (rad)":data2[10],
-            "Phase symmetry voltage L3 (rad)":data2[11],
-            "Phase symmetry current L1 (rad)":data2[12],
-            "Phase symmetry current L1 (rad)":data2[13],
-            "Phase symmetry current L1 (rad)":data2[14],
-            "Phase angle L1 (rad)":data2[15],
-            "Phase angle L2 (rad)":data2[16],
-            "Phase angle L3 (rad)":data2[17],
-            "Power factor L1":data2[18],
-            "Power factor L2":data2[19],
-            "Power factor L3":data2[20],
-            "Active power L1 (W)":data2[21],
-            "Active power L2 (W)":data2[22],
-            "Active power L3 (W)":data2[23],
-            "Reactive power L1 (var)":data2[24],
-            "Reactive power L2 (var)":data2[25],
-            "Reactive power L3 (var)":data2[26],
-            "Apparent power L1 (VA)":data2[27],
-            "Apparent power L2 (VA)":data2[28],
-            "Apparent power L3 (VA)":data2[29],
-            "THD Voltage L1 (0.0-1.0)":data2[30],
-            "THD Voltage L2 (0.0-1.0)":data2[31],
-            "THD Voltage L3 (0.0-1.0)":data2[32],
-            "THD Current L1 (0.0-1.0)":data2[33],
-            "THD Current L2 (0.0-1.0)":data2[34],
-            "THD Current L3 (0.0-1.0)":data2[35],
-            "Total active power (W)":data2[36],
-            "Total reactive power (var)":data2[37],
-            "Total apparent power (VA)":data2[38],
-            "Total power factor":data2[39],
-            "Total phase angle":data2[40],
-            "Frequency":data2[41],
-            "VT ratio":data2[42],
-            "CT ratio":data2[43],
-            "Secondary nominal voltage (V)":data2[44],
-            "Secondary nominal current (A)":data2[45]
-        }
-        #print info2
-        #Read temperature
-        temperaturedict = {
-            "Temperature (°C)":tempdata[0]
-        }
-        #print temperaturedict
-        #send_to_db2([timedict,info1,info2,temp])
-        alldata = {
-            "Meter time":metertime_to_time(metertime),
-            "timestamp":int(time.time()*1000),
-            "Active energy imp. (Wh)": data1[0],
-            "Active energy exp. (Wh)": data1[1],
-            "Reactive energy QI (varh)": data1[2],
-            "Reactive energy QII (varh)": data1[3],
-            "Reactive energy QIII (varh)": data1[4],
-            "Reactive energy QIV (varh)": data1[5],
-            "Apparent energy imp. (V Ah)": data1[6],
-            "Apparent energy exp. (V Ah)": data1[7],
-            "Reactive energy imp. (varh)": data1[8],
-            "Reactive energy exp. (varh)": data1[9],
-            "Reactive energy ind. (varh)": data1[10],
-            "Reactive energy cap. (varh)": data1[11],
-            "Active energy imp. L1 (Wh)": data1[12],
-            "Active energy imp. L2 (Wh)": data1[13],
-            "Active energy imp. L3 (Wh)": data1[14],
-            "Active energy exp. L1 (Wh)": data1[15],
-            "Active energy exp. L2 (Wh)": data1[16],
-            "Active energy exp. L3 (Wh)": data1[17],
-            "Phase voltage L1 (V)":data2[0],
-            "Phase voltage L2 (V)":data2[1],
-            "Phase voltage L3 (V)":data2[2],
-            "Main voltage L1-L2 (V)":data2[3],
-            "Main voltage L2-L3 (V)":data2[4],
-            "Main voltage L3-L1 (V)":data2[5],
-            "Current L1 (A)":data2[6],
-            "Current L2 (A)":data2[7],
-            "Current L3 (A)":data2[8],
-            "Phase symmetry voltage L1 (rad)":data2[9],
-            "Phase symmetry voltage L2 (rad)":data2[10],
-            "Phase symmetry voltage L3 (rad)":data2[11],
-            "Phase symmetry current L1 (rad)":data2[12],
-            "Phase symmetry current L1 (rad)":data2[13],
-            "Phase symmetry current L1 (rad)":data2[14],
-            "Phase angle L1 (rad)":data2[15],
-            "Phase angle L2 (rad)":data2[16],
-            "Phase angle L3 (rad)":data2[17],
-            "Power factor L1":data2[18],
-            "Power factor L2":data2[19],
-            "Power factor L3":data2[20],
-            "Active power L1 (W)":data2[21],
-            "Active power L2 (W)":data2[22],
-            "Active power L3 (W)":data2[23],
-            "Reactive power L1 (var)":data2[24],
-            "Reactive power L2 (var)":data2[25],
-            "Reactive power L3 (var)":data2[26],
-            "Apparent power L1 (VA)":data2[27],
-            "Apparent power L2 (VA)":data2[28],
-            "Apparent power L3 (VA)":data2[29],
-            "THD Voltage L1 (0.0-1.0)":data2[30],
-            "THD Voltage L2 (0.0-1.0)":data2[31],
-            "THD Voltage L3 (0.0-1.0)":data2[32],
-            "THD Current L1 (0.0-1.0)":data2[33],
-            "THD Current L2 (0.0-1.0)":data2[34],
-            "THD Current L3 (0.0-1.0)":data2[35],
-            "Total active power (W)":data2[36],
-            "Total reactive power (var)":data2[37],
-            "Total apparent power (VA)":data2[38],
-            "Total power factor":data2[39],
-            "Total phase angle":data2[40],
-            "Frequency":data2[41],
-            "VT ratio":data2[42],
-            "CT ratio":data2[43],
-            "Secondary nominal voltage (V)":data2[44],
-            "Secondary nominal current (A)":data2[45],
-            "Temperature (C)":tempdata[0]
-        }
+    wind = read_data("192.168.1.3")
+    solar = read_data("192.168.1.4")
+    try:
         data = {
-            "wind":alldata
+            "wind":wind,
+            "solar":solar,
+            "timestamp":int(time.time()*1000)
         }
         send_to_db2(data)
 
         #send('END') 
         print "Done."
     finally:
-        send_without_recv([SOH,"B0",ETX])
         print >>sys.stderr, 'closing socket'
         s.close()
 
