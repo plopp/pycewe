@@ -10,7 +10,8 @@ import json
 import urllib2
 import datetime
 import couchdb
-
+import threading
+import Queue
 PORT = 10001 #Electricity meter port
 
 SOH = "\x01"
@@ -23,13 +24,12 @@ LF = "\x0A"
 BCC = "\xFF"
 
 
-server_address = ""
-s = ""
 
 PASSWORD = "(ABCDEF)"
 
 couch = None
 db = None
+s = None
 
 def setup_couchdb(credentials):
    global couch
@@ -39,15 +39,13 @@ def setup_couchdb(credentials):
    db = couch['giraff'] # existing
 
 def setup_socket(address):
-    global s
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_address = (address, PORT)
     print "Client listening on: ",server_address
-    return server_address
+    return [s,server_address]
 
-def connect(addr_tuple):
-    print "DEBUG: ",addr_tuple
-    s.connect(addr_tuple)
+def connect(s,addr):
+    s.connect(addr)
     s.setblocking(0)
 
 def prettify(bytes):
@@ -59,7 +57,7 @@ def prettify(bytes):
     bytes = bytes.replace(LF,"<LF>")
     return bytes
 
-def send_without_recv(bytes):
+def send_without_recv(s,bytes):
     #time.sleep(0.3)
     if bytes == "END":
         s.sendall("END")
@@ -92,12 +90,12 @@ def send_without_recv(bytes):
     bytes = prettify(data)
     #print >>sys.stderr, 'sending "%s"' % bytes
 
-def send(bytes):
-    send_without_recv(bytes)
-    data = recv()
+def send(s,bytes):
+    send_without_recv(s,bytes)
+    data = recv(s)
     return data
 
-def recv():
+def recv(s):
     bcc = 0
     error = False
     total_data = []
@@ -250,22 +248,27 @@ def send_to_db(doc, creds):
     request.get_method = lambda: 'POST'
     urllib2.urlopen(request, timeout=1)    
 
-def read_data(address):
-    addr_tuple = setup_socket(address)
-    connect(addr_tuple)   
+def read_data(q,reply_q):
+    print "Running read_data"
+    address = q.get()
+    socketlist = setup_socket(address)
+    s = socketlist[0]
+    connect(s,socketlist[1])   
     # Send data
-    send('/?!\r\n')
-    send([ACK,"051\r\n"]) #050 Data readout,#051 programming mode
-    send([SOH,"P2",STX,"(AAAAAA)",ETX]) #<SOH>P2<STX>(ABCDEF)<ETX><BCC>
-    timeans = send([SOH,"R1",STX,"100C00(1)",ETX])
-    metertime =  ans_to_list_str(timeans)
-    data1ans = send([SOH,"R1",STX,"100800(1)",ETX])
-    data1 =  ans_to_list(data1ans)
-    data2ans = send([SOH,"R1",STX,"015200(1)",ETX])
-    data2 = ans_to_list(data2ans)
-    temp = send([SOH,"R1",STX,"100700(1)",ETX])
-    tempdata = ans_to_list(temp)
+    print "Sending data"
+    send(s,'/?!\r\n')
+    send(s,[ACK,"051\r\n"]) #050 Data readout,#051 programming mode
+    send(s,[SOH,"P2",STX,"(AAAAAA)",ETX]) #<SOH>P2<STX>(ABCDEF)<ETX><BCC>
 
+    timeans = send(s,[SOH,"R1",STX,"100C00(1)",ETX])
+    metertime =  ans_to_list_str(timeans)
+    data1ans = send(s,[SOH,"R1",STX,"100800(1)",ETX])
+    data1 =  ans_to_list(data1ans)
+    data2ans = send(s,[SOH,"R1",STX,"015200(1)",ETX])
+    data2 = ans_to_list(data2ans)
+    temp = send(s,[SOH,"R1",STX,"100700(1)",ETX])
+    tempdata = ans_to_list(temp)
+    print "Got data"
     data = {
         "Meter time":metertime_to_time(metertime),
         "Active energy imp. (Wh)": data1[0],
@@ -334,9 +337,10 @@ def read_data(address):
         "Secondary nominal current (A)":data2[45],
         "Temperature (C)":tempdata[0]
     }
-    send_without_recv([SOH,"B0",ETX])
+    send_without_recv(s,[SOH,"B0",ETX])
+    reply_q.put([address,data])
     s.close()
-    return data
+    q.task_done()
 
 def main():
 
@@ -366,21 +370,52 @@ def main():
 
     #print credentials
     setup_couchdb(credentials)
-    wind = read_data("192.168.1.3")
-    solar = read_data("192.168.1.4")
-    try:
-        data = {
-            "wind":wind,
-            "solar":solar,
-            "timestamp":int(time.time()*1000)
-        }
-        send_to_db2(data)
+    addr_q = Queue.Queue()
+    reply_q = Queue.Queue()
 
-        #send('END') 
-        print "Done."
-    finally:
-        print >>sys.stderr, 'closing socket'
-        s.close()
+    while True:
+        thread1 = threading.Thread(target=read_data,args=(addr_q,reply_q,))
+        thread2 = threading.Thread(target=read_data,args=(addr_q,reply_q,))
+        thread1.daemon = True
+        thread2.daemon = True
+        thread1.start()
+        thread2.start()
+
+
+        print "Adding to queue"
+        addr_q.put("192.168.1.3")
+        print "Adding to queue"
+        addr_q.put("192.168.1.4")
+        print "Waiting"
+        addr_q.join()
+        print "Parsing"
+        first = reply_q.get(block=True)
+        print "Got 1st"
+        second = reply_q.get(block=True)
+        print "Got 2nd"
+
+        if first[0] == "192.168.1.3":
+            wind = first[1]
+            solar = second[1]
+        else:
+            wind = second[1]
+            solar = first[1]
+
+        try:
+            data = {
+                "wind":wind,
+                "solar":solar,
+                "timestamp":int(time.time()*1000)
+            }
+            send_to_db2(data)
+
+            #send('END') 
+            print "Done."
+        finally:
+            print "One lap"
+            #return
+            #print >>sys.stderr, 'closing socket'
+            #s.close()
 
 if __name__ == "__main__":
     main()
