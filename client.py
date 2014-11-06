@@ -34,9 +34,9 @@ s = None
 def setup_couchdb(credentials):
    global couch
    global db
-   couch = couchdb.Server("%(server)s" % credentials)
+   couch = couchdb.Server("https://%(domain)s" % credentials)
    couch.resource.credentials = ('%(user)s' % credentials,"%(passw)s" % credentials)
-   db = couch['giraff'] # existing
+   db = couch['%(db)s' % credentials] # existing
 
 def setup_socket(address):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -236,11 +236,20 @@ def unix_time(dt):
 def unix_time_millis(dt):
     return unix_time(dt) * 1000.0
 
-def send_to_db2(doc):
-    db.save(doc)
+def send_to_db2(q,credentials):
+    size = q.qsize()
+    if size>10:
+        print "Queue size is 10, sending"
+        doc_arr = []
+        for i in range(0,size):
+            doc = q.get()
+            doc_arr.append(doc)
+            q.task_done()
+        db.update(doc_arr)
+        couch.replicate("%(db)s" % credentials,"https://%(user)s:%(passw)s@%(domain)s/%(repldb)s" % credentials)
 
 def send_to_db(doc, creds):
-    url = ('%(server)s/%(db)s' % creds)
+    url = ('https://%(domain)s/%(db)s' % creds)
     request = urllib2.Request(url, data=json.dumps(doc))
     auth = base64.encodestring('%(user)s:%(passw)s' % creds).replace("\n","")
     request.add_header('Authorization', 'Basic ' + auth)
@@ -262,74 +271,74 @@ def read_data(q,reply_q):
     data2 = ans_to_list(data2ans)
     temp = send(s,[SOH,"R1",STX,"100700(1)",ETX])
     tempdata = ans_to_list(temp)
-    print "Got data"
+    #print "Got data"
     data = {
-        "Meter time":metertime_to_time(metertime),
-        "Active energy imp. (Wh)": data1[0],
-        "Active energy exp. (Wh)": data1[1],
-        "Reactive energy QI (varh)": data1[2],
-        "Reactive energy QII (varh)": data1[3],
-        "Reactive energy QIII (varh)": data1[4],
-        "Reactive energy QIV (varh)": data1[5],
-        "Apparent energy imp. (V Ah)": data1[6],
-        "Apparent energy exp. (V Ah)": data1[7],
-        "Reactive energy imp. (varh)": data1[8],
-        "Reactive energy exp. (varh)": data1[9],
-        "Reactive energy ind. (varh)": data1[10],
-        "Reactive energy cap. (varh)": data1[11],
-        "Active energy imp. L1 (Wh)": data1[12],
-        "Active energy imp. L2 (Wh)": data1[13],
-        "Active energy imp. L3 (Wh)": data1[14],
-        "Active energy exp. L1 (Wh)": data1[15],
-        "Active energy exp. L2 (Wh)": data1[16],
-        "Active energy exp. L3 (Wh)": data1[17],
-        "Phase voltage L1 (V)":data2[0],
-        "Phase voltage L2 (V)":data2[1],
-        "Phase voltage L3 (V)":data2[2],
-        "Main voltage L1-L2 (V)":data2[3],
-        "Main voltage L2-L3 (V)":data2[4],
-        "Main voltage L3-L1 (V)":data2[5],
-        "Current L1 (A)":data2[6],
-        "Current L2 (A)":data2[7],
-        "Current L3 (A)":data2[8],
-        "Phase symmetry voltage L1 (rad)":data2[9],
-        "Phase symmetry voltage L2 (rad)":data2[10],
-        "Phase symmetry voltage L3 (rad)":data2[11],
-        "Phase symmetry current L1 (rad)":data2[12],
-        "Phase symmetry current L1 (rad)":data2[13],
-        "Phase symmetry current L1 (rad)":data2[14],
-        "Phase angle L1 (rad)":data2[15],
-        "Phase angle L2 (rad)":data2[16],
-        "Phase angle L3 (rad)":data2[17],
-        "Power factor L1":data2[18],
-        "Power factor L2":data2[19],
-        "Power factor L3":data2[20],
-        "Active power L1 (W)":data2[21],
-        "Active power L2 (W)":data2[22],
-        "Active power L3 (W)":data2[23],
-        "Reactive power L1 (var)":data2[24],
-        "Reactive power L2 (var)":data2[25],
-        "Reactive power L3 (var)":data2[26],
-        "Apparent power L1 (VA)":data2[27],
-        "Apparent power L2 (VA)":data2[28],
-        "Apparent power L3 (VA)":data2[29],
-        "THD Voltage L1 (0.0-1.0)":data2[30],
-        "THD Voltage L2 (0.0-1.0)":data2[31],
-        "THD Voltage L3 (0.0-1.0)":data2[32],
-        "THD Current L1 (0.0-1.0)":data2[33],
-        "THD Current L2 (0.0-1.0)":data2[34],
-        "THD Current L3 (0.0-1.0)":data2[35],
-        "Total active power (W)":data2[36],
-        "Total reactive power (var)":data2[37],
-        "Total apparent power (VA)":data2[38],
-        "Total power factor":data2[39],
-        "Total phase angle":data2[40],
-        "Frequency":data2[41],
-        "VT ratio":data2[42],
-        "CT ratio":data2[43],
-        "Secondary nominal voltage (V)":data2[44],
-        "Secondary nominal current (A)":data2[45],
-        "Temperature (C)":tempdata[0]
+        "meter_time":metertime_to_time(metertime),
+        "act_ener_imp": data1[0], #Wh
+        "act_ener_exp": data1[1], #Wh
+        "rea_ener_q1": data1[2], #varh
+        "rea_ener_q2": data1[3], #varh
+        "rea_ener_q3": data1[4], #varh
+        "rea_ener_q4": data1[5], #varh
+        "app_ener_imp": data1[6], #V Ah
+        "app_ener_exp": data1[7], #V Ah
+        "rea_ener_imp": data1[8], #varh
+        "rea_ener_exp": data1[9], #varh
+        "rea_ener_ind": data1[10], #varh
+        "rea_ener_cap": data1[11], #varh
+        "act_ener_imp_L1": data1[12], #Wh
+        "act_ener_imp_L2": data1[13], #Wh
+        "act_ener_imp_L3": data1[14], #Wh
+        "act_ener_exp_L1": data1[15], #Wh
+        "act_ener_exp_L2": data1[16], #Wh
+        "act_ener_exp_L3": data1[17], #Wh
+        "pha_volt_L1":data2[0], #V
+        "pha_volt_L2":data2[1], #V
+        "pha_volt_L3":data2[2], #V
+        "main_volt_L1_L2":data2[3], #V
+        "main_volt_L2_L3":data2[4], #V
+        "main_volt_L3_L1":data2[5], #V
+        "current_L1":data2[6], #A
+        "current_L2":data2[7], #A
+        "current_L3":data2[8], #A
+        "pha_sym_volt_L1":data2[9], #rad
+        "pha_sym_volt_L2":data2[10], #rad
+        "pha_sym_volt_L3":data2[11], #rad
+        "pha_sym_current_L1":data2[12], #rad
+        "pha_sym_current_L2":data2[13], #rad
+        "pha_sym_current_L3":data2[14], #rad
+        "pha_angle_L1":data2[15], #rad
+        "pha_angle_L2":data2[16], #rad
+        "pha_angle_L3":data2[17], #rad
+        "pow_fact_L1":data2[18], 
+        "pow_fact_L2":data2[19],
+        "pow_fact_L3":data2[20],
+        "act_pow_L1":data2[21], #W
+        "act_pow_L2":data2[22], #W
+        "act_pow_L3":data2[23], #W
+        "rea_pow_L1":data2[24], #var
+        "rea_pow_L2":data2[25], #var
+        "rea_pow_L3":data2[26], #var
+        "app_pow_L1":data2[27], #VA
+        "app_pow_L2":data2[28], #VA
+        "app_pow_L3":data2[29], #VA
+        "thd_volt_L1":data2[30],
+        "thd_volt_L2":data2[31],
+        "thd_volt_L3":data2[32],
+        "thd_cur_L1":data2[33],
+        "thd_cur_L2":data2[34],
+        "thd_cur_L3":data2[35],
+        "tot_act_power":data2[36], #W
+        "tot_rea_power":data2[37], #var
+        "tot_app_power":data2[38], #VA
+        "tot_pow_fact":data2[39],
+        "tot_pha_angle":data2[40],
+        "frequency":data2[41], #Hz
+        "vt_ratio":data2[42],
+        "ct_ratio":data2[43],
+        "sec_nom_volt":data2[44], #V
+        "sec_nom_cur":data2[45], #A
+        "temperature":tempdata[0] #C
     }
     reply_q.put([s,data])
     q.task_done()
@@ -341,30 +350,33 @@ def main():
     url = ""
 
     #There is got to be a text file named ".credentials" in the same folder as the
-    #pythons script, containg: <user>,<passw>,<url_to_database>
-    #example: user1,password1,https://domain/database
+    #python script, containg: <user>,<passw>,<domain>,<repldb_name>,<dbname>
+    #example: user1,password1,domain,database-repl,database
     with open('.credentials', 'r') as f:
         file_data = f.read()
         #print read_data
         creds = file_data.split(',')
         user = creds[0]
         passw = creds[1]
-        url = creds[2]
-        db = creds[3].replace('\n','')
+        domain = creds[2]
+        repldb = creds[3]
+        dbname = creds[4].replace('\n','')
 
 
     credentials = {
       'user': user,
       'passw': passw,
-      'server': url,
-      'db': db
+      'domain': domain,
+      'repldb': repldb,
+      'db': dbname
     }
 
     #print credentials
     setup_couchdb(credentials)
+
     addr_q = Queue.Queue()
     reply_q = Queue.Queue()
-
+    send_q = Queue.Queue()
     #address = q.get()
 
     socketlist = setup_socket("192.168.1.3")
@@ -383,53 +395,62 @@ def main():
     send(s2,[ACK,"051\r\n"]) #050 Data readout,#051 programming mode
     send(s2,[SOH,"P2",STX,"(AAAAAA)",ETX]) #<SOH>P2<STX>(ABCDEF)<ETX><BCC>
 
+    times = []
 
     try:
         while True:
+            t0 = time.time()
             thread1 = threading.Thread(target=read_data,args=(addr_q,reply_q,))
             thread2 = threading.Thread(target=read_data,args=(addr_q,reply_q,))
+            thread3 = threading.Thread(target=send_to_db2,args=(send_q,credentials,))
             thread1.daemon = True
             thread2.daemon = True
+            thread3.daemon = True
             thread1.start()
             thread2.start()
+            thread3.start()
 
-
-            print "Adding to queue"
             addr_q.put(s1)
-            print "Adding to queue"
             addr_q.put(s2)
-            print "Waiting"
             addr_q.join()
-            print "Parsing"
+
             first = reply_q.get(block=True)
-            print "Got 1st"
             second = reply_q.get(block=True)
-            print "Got 2nd"
 
-            print first
-            print second
-        #if first[0] == "192.168.1.3":
-        #    wind = first[1]
-        #    solar = second[1]
-        #else:
-        #    wind = second[1]
-        #    solar = first[1]
+            if first[0].getpeername()[0] == "192.168.1.3":
+                wind = first[1]
+                solar = second[1]
+            else:
+                wind = second[1]
+                solar = first[1]
 
-        #try:
-        #    data = {
-        #        "wind":wind,
-        #        "solar":solar,
-        #        "timestamp":int(time.time()*1000)
-        #    }
-        #    send_to_db2(data)
+            data = {
+                "wind":wind,
+                "solar":solar,
+                "timestamp":int(time.time()*1000)
+            }
+            send_q.put(data)
+            t1 = time.time()
+            total = t1-t0
+            if (1-total)>0:
+                time.sleep(1-total)
+            now = time.time()
+            print now-t0," s"
+            times.append(now-t0)
+
+            #print data
+            #send_to_db2(data)
 
             #send('END') 
-            print "Done."
     finally:
         send_without_recv(s1,[SOH,"B0",ETX])
         send_without_recv(s2,[SOH,"B0",ETX])
         s1.close()
         s2.close()
+        sum = 0
+        for i in times:
+            sum+=i
+        print "Avg: ",sum/len(times)
             #return
             #print >>sys.stderr, 'closing socket'
             #s.close()
