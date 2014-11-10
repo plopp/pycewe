@@ -12,6 +12,7 @@ import datetime
 import couchdb
 import threading
 import Queue
+from socket import gethostbyname, gaierror
 PORT = 10001 #Electricity meter port
 
 SOH = "\x01"
@@ -36,7 +37,11 @@ def setup_couchdb(credentials):
    global db
    couch = couchdb.Server("https://%(domain)s" % credentials)
    couch.resource.credentials = ('%(user)s' % credentials,"%(passw)s" % credentials)
-   db = couch['%(db)s' % credentials] # existing
+   try:
+       db = couch['%(db)s' % credentials] # existing
+   except:
+       return False
+   return True
 
 def setup_socket(address):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -344,7 +349,6 @@ def read_data(q,reply_q):
     q.task_done()
 
 def main():
-
     passw = ""
     user = ""
     url = ""
@@ -352,16 +356,19 @@ def main():
     #There is got to be a text file named ".credentials" in the same folder as the
     #python script, containg: <user>,<passw>,<domain>,<repldb_name>,<dbname>
     #example: user1,password1,domain,database-repl,database
-    with open('.credentials', 'r') as f:
-        file_data = f.read()
-        #print read_data
-        creds = file_data.split(',')
-        user = creds[0]
-        passw = creds[1]
-        domain = creds[2]
-        repldb = creds[3]
-        dbname = creds[4].replace('\n','')
-
+    try:
+        with open('/home/marcus/git/pycewe/.credentials', 'r') as f:
+            file_data = f.read()
+            #print read_data
+            creds = file_data.split(',')
+            user = creds[0]
+            passw = creds[1]
+            domain = creds[2]
+            repldb = creds[3]
+            dbname = creds[4].replace('\n','')
+    except:
+        print "Error opening credentials file."
+        raise
 
     credentials = {
       'user': user,
@@ -372,7 +379,10 @@ def main():
     }
 
     #print credentials
-    setup_couchdb(credentials)
+    while not setup_couchdb(credentials):
+        print "Could not connect to database. Retrying soon..."
+        time.sleep(2)
+        
 
     addr_q = Queue.Queue()
     reply_q = Queue.Queue()
@@ -381,12 +391,21 @@ def main():
 
     socketlist = setup_socket("192.168.1.3")
     s1 = socketlist[0]
-    connect(s1,socketlist[1])
+    try:
+        connect(s1,socketlist[1])
+    except:
+        print "Could not connect to 192.168.1.3"
+        raise
 
     socketlist = setup_socket("192.168.1.4")
     s2 = socketlist[0]
-    connect(s2,socketlist[1])
 
+    try:
+        connect(s2,socketlist[1])
+    except:
+        print "Could not connect to 192.168.1.4"
+        raise
+    
     send(s1,'/?!\r\n')
     send(s1,[ACK,"051\r\n"]) #050 Data readout,#051 programming mode
     send(s1,[SOH,"P2",STX,"(AAAAAA)",ETX]) #<SOH>P2<STX>(ABCDEF)<ETX><BCC>
@@ -396,6 +415,8 @@ def main():
     send(s2,[SOH,"P2",STX,"(AAAAAA)",ETX]) #<SOH>P2<STX>(ABCDEF)<ETX><BCC>
 
     times = []
+
+
 
     try:
         while True:
@@ -432,12 +453,11 @@ def main():
             send_q.put(data)
             t1 = time.time()
             total = t1-t0
-            if (1-total)>0:
+            if (1-total)>0.05:
                 time.sleep(1-total)
             now = time.time()
-            print now-t0," s"
             times.append(now-t0)
-
+            print ".",
             #print data
             #send_to_db2(data)
 
@@ -456,4 +476,10 @@ def main():
             #s.close()
 
 if __name__ == "__main__":
-    main()
+    while True:
+        try:
+            main()
+        except:
+            print "Error, retrying in 10 seconds"
+            time.sleep(10)
+            pass
