@@ -12,6 +12,7 @@ import datetime
 import couchdb
 import threading
 import Queue
+from pymodbus.client.sync import ModbusSerialClient as Modbus
 from socket import gethostbyname, gaierror
 PORT = 10001 #Electricity meter port
 
@@ -31,6 +32,11 @@ PASSWORD = "(ABCDEF)"
 couch = None
 db = None
 s = None
+
+timeoutModbus = 0.1
+portName = '/dev/ttyUSB0'
+Pyro = Modbus(method='rtu', port=portName, baudrate=38400, timeout=timeoutModbus, stopbits = 1, parity = 'E')
+
 
 def setup_couchdb(credentials):
    global couch
@@ -345,7 +351,27 @@ def read_data(q,reply_q):
         "sec_nom_cur":data2[45], #A
         "temperature":tempdata[0] #C
     }
-    reply_q.put([s,data])
+    if s.getpeername()[0] == "192.168.0.3":
+        reply_q.put(["wind",data])
+    elif s.getpeername()[0] == "192.168.0.4":
+        reply_q.put(["solar",data])
+    
+    q.task_done()
+
+def read_modbus_pyro(q,reply_q):
+    print "Reading Pyro"
+    reg = q.get()
+    #reg = [8]
+    data = {}
+    
+    for r in reg:
+        ans = Pyro.read_input_registers(r, 1, unit=1)
+        if r == 5:
+            data["radiance"] = ans.registers[0]/1.0
+        if r == 8:        
+            data["temp"] = ans.registers[0]/1.0
+    reply_q.put(["pyro",data])
+    print "Pyro data: ",data
     q.task_done()
 
 def main():
@@ -379,14 +405,16 @@ def main():
     }
 
     #print credentials
-    while not setup_couchdb(credentials):
-        print "Could not connect to database. Retrying soon..."
-        time.sleep(2)
+    #while not setup_couchdb(credentials):
+    #    print "Could not connect to database. Retrying soon..."
+    #    time.sleep(2)
         
 
     addr_q = Queue.Queue()
     reply_q = Queue.Queue()
     send_q = Queue.Queue()
+    register_q = Queue.Queue()    
+    
     #address = q.get()
 
     socketlist = setup_socket("192.168.1.3")
@@ -424,33 +452,50 @@ def main():
             thread1 = threading.Thread(target=read_data,args=(addr_q,reply_q,))
             thread2 = threading.Thread(target=read_data,args=(addr_q,reply_q,))
             thread3 = threading.Thread(target=send_to_db2,args=(send_q,credentials,))
+            thread4 = threading.Thread(target=read_modbus_pyro,args=(register_q,reply_q,))
             thread1.daemon = True
             thread2.daemon = True
             thread3.daemon = True
+            thread4.daemon = True
             thread1.start()
             thread2.start()
             thread3.start()
+            thread4.start()
 
             addr_q.put(s1)
             addr_q.put(s2)
+            register_q.put([5,8])
+
+            print "Threads running"
             addr_q.join()
+            register_q.join()
 
-            first = reply_q.get(block=True)
-            second = reply_q.get(block=True)
-
-            if first[0].getpeername()[0] == "192.168.1.3":
-                wind = first[1]
-                solar = second[1]
-            else:
-                wind = second[1]
-                solar = first[1]
+            ansarr = []
+            print "Threads joined"            
+            ansarr.append(reply_q.get(block=True))
+            print "Read first",ansarr[0]
+            ansarr.append(reply_q.get(block=True))
+            print "Read second",ansarr[1]
+            ansarr.append(reply_q.get(block=True))
+            print "Read thirds",ansarr[2]
+            print "Reading reply_q"
+            for post in ansarr:
+                if post[0] == "wind":
+                    wind = post[1]
+                elif post[0] == "solar":
+                    solar = post[1]
+                elif post[0] == "pyro":
+                    pyro = post[1]
 
             data = {
                 "wind":wind,
                 "solar":solar,
+                "pyro":pyro,
                 "timestamp":int(time.time()*1000)
             }
-            send_q.put(data)
+
+            print data
+            #send_q.put(data)
             t1 = time.time()
             total = t1-t0
             if (1-total)>0.05:
@@ -467,19 +512,22 @@ def main():
         send_without_recv(s2,[SOH,"B0",ETX])
         s1.close()
         s2.close()
+        Pyro.close()
+
         sum = 0
         for i in times:
             sum+=i
-        print "Avg: ",sum/len(times)
+        if len(times)>0:
+            print "Avg: ",sum/len(times)
             #return
             #print >>sys.stderr, 'closing socket'
             #s.close()
 
 if __name__ == "__main__":
-    while True:
-        try:
-            main()
-        except:
-            print "Error, retrying in 10 seconds"
-            time.sleep(10)
-            pass
+    #while True:
+        #try:
+    main()
+        #except:
+        #    print "Error, retrying in 10 seconds"
+        #    time.sleep(10)
+        #    pass
