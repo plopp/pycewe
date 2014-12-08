@@ -272,7 +272,7 @@ def read_data(q,reply_q):
     #print "Running read_data"
     s = q.get()   
     # Send data
-    #print "Sending data"
+    print "Sending data"
 
     timeans = send(s,[SOH,"R1",STX,"100C00(1)",ETX])
     metertime =  ans_to_list_str(timeans)
@@ -282,96 +282,91 @@ def read_data(q,reply_q):
     data2 = ans_to_list(data2ans)
     temp = send(s,[SOH,"R1",STX,"100700(1)",ETX])
     tempdata = ans_to_list(temp)
-    #print "Got data"
     data = {
         "meter_time":metertime_to_time(metertime),
-        "act_ener_imp": data1[0], #Wh
-        "act_ener_exp": data1[1], #Wh
-        "rea_ener_q1": data1[2], #varh
-        "rea_ener_q2": data1[3], #varh
-        "rea_ener_q3": data1[4], #varh
-        "rea_ener_q4": data1[5], #varh
-        "app_ener_imp": data1[6], #V Ah
-        "app_ener_exp": data1[7], #V Ah
-        "rea_ener_imp": data1[8], #varh
-        "rea_ener_exp": data1[9], #varh
-        "rea_ener_ind": data1[10], #varh
-        "rea_ener_cap": data1[11], #varh
+        #"act_ener_imp": data1[0], #Wh
+        #"act_ener_exp": data1[1], #Wh
+        #"rea_ener_q1": data1[2], #varh
+        #"rea_ener_q2": data1[3], #varh
+        #"rea_ener_q3": data1[4], #varh
+        #"rea_ener_q4": data1[5], #varh
+        #"app_ener_imp": data1[6], #V Ah
+        #"app_ener_exp": data1[7], #V Ah
+        #"rea_ener_imp": data1[8], #varh
+        #"rea_ener_exp": data1[9], #varh
+        #"rea_ener_ind": data1[10], #varh
+        #"rea_ener_cap": data1[11], #varh
         "act_ener_imp_L1": data1[12], #Wh
         "act_ener_imp_L2": data1[13], #Wh
         "act_ener_imp_L3": data1[14], #Wh
         "act_ener_exp_L1": data1[15], #Wh
         "act_ener_exp_L2": data1[16], #Wh
         "act_ener_exp_L3": data1[17], #Wh
-        "pha_volt_L1":data2[0], #V
-        "pha_volt_L2":data2[1], #V
-        "pha_volt_L3":data2[2], #V
-        "main_volt_L1_L2":data2[3], #V
-        "main_volt_L2_L3":data2[4], #V
-        "main_volt_L3_L1":data2[5], #V
+        #"pha_volt_L1":data2[0], #V
+        #"pha_volt_L2":data2[1], #V
+        #"pha_volt_L3":data2[2], #V
+        #"main_volt_L1_L2":data2[3], #V
+        #"main_volt_L2_L3":data2[4], #V
+        #"main_volt_L3_L1":data2[5], #V
         "current_L1":data2[6], #A
         "current_L2":data2[7], #A
         "current_L3":data2[8], #A
-        "pha_sym_volt_L1":data2[9], #rad
-        "pha_sym_volt_L2":data2[10], #rad
-        "pha_sym_volt_L3":data2[11], #rad
-        "pha_sym_current_L1":data2[12], #rad
-        "pha_sym_current_L2":data2[13], #rad
-        "pha_sym_current_L3":data2[14], #rad
-        "pha_angle_L1":data2[15], #rad
-        "pha_angle_L2":data2[16], #rad
-        "pha_angle_L3":data2[17], #rad
+        #"pha_sym_volt_L1":data2[9], #rad
+        #"pha_sym_volt_L2":data2[10], #rad
+        #"pha_sym_volt_L3":data2[11], #rad
+        #"pha_sym_current_L1":data2[12], #rad
+        #"pha_sym_current_L2":data2[13], #rad
+        #"pha_sym_current_L3":data2[14], #rad
+        #"pha_angle_L1":data2[15], #rad
+        #"pha_angle_L2":data2[16], #rad
+        #"pha_angle_L3":data2[17], #rad
         "pow_fact_L1":data2[18], 
         "pow_fact_L2":data2[19],
         "pow_fact_L3":data2[20],
         "act_pow_L1":data2[21], #W
         "act_pow_L2":data2[22], #W
         "act_pow_L3":data2[23], #W
-        "rea_pow_L1":data2[24], #var
-        "rea_pow_L2":data2[25], #var
-        "rea_pow_L3":data2[26], #var
-        "app_pow_L1":data2[27], #VA
-        "app_pow_L2":data2[28], #VA
-        "app_pow_L3":data2[29], #VA
-        "thd_volt_L1":data2[30],
-        "thd_volt_L2":data2[31],
-        "thd_volt_L3":data2[32],
-        "thd_cur_L1":data2[33],
-        "thd_cur_L2":data2[34],
-        "thd_cur_L3":data2[35],
+        #"rea_pow_L1":data2[24], #var
+        #"rea_pow_L2":data2[25], #var
+        #"rea_pow_L3":data2[26], #var
+        #"app_pow_L1":data2[27], #VA
+        #"app_pow_L2":data2[28], #VA
+        #"app_pow_L3":data2[29], #VA
+        #"thd_volt_L1":data2[30],
+        #"thd_volt_L2":data2[31],
+        #"thd_volt_L3":data2[32],
+        #"thd_cur_L1":data2[33],
+        #"thd_cur_L2":data2[34],
+        #"thd_cur_L3":data2[35],
         "tot_act_power":data2[36], #W
-        "tot_rea_power":data2[37], #var
-        "tot_app_power":data2[38], #VA
+        #"tot_rea_power":data2[37], #var
+        #"tot_app_power":data2[38], #VA
         "tot_pow_fact":data2[39],
-        "tot_pha_angle":data2[40],
+        #"tot_pha_angle":data2[40],
         "frequency":data2[41], #Hz
-        "vt_ratio":data2[42],
+        #"vt_ratio":data2[42],
         "ct_ratio":data2[43],
-        "sec_nom_volt":data2[44], #V
-        "sec_nom_cur":data2[45], #A
+        #"sec_nom_volt":data2[44], #V
+        #"sec_nom_cur":data2[45], #A
         "temperature":tempdata[0] #C
     }
-    if s.getpeername()[0] == "192.168.0.3":
-        reply_q.put(["wind",data])
-    elif s.getpeername()[0] == "192.168.0.4":
+    if s.getpeername()[0] == "192.168.1.3":
         reply_q.put(["solar",data])
-    
+    elif s.getpeername()[0] == "192.168.1.4":
+        reply_q.put(["wind",data])
     q.task_done()
 
 def read_modbus_pyro(q,reply_q):
-    print "Reading Pyro"
     reg = q.get()
-    #reg = [8]
     data = {}
     
     for r in reg:
         ans = Pyro.read_input_registers(r, 1, unit=1)
         if r == 5:
-            data["radiance"] = ans.registers[0]/1.0
+            data["radiance"] = ans.registers[0]/10.0
         if r == 8:        
-            data["temp"] = ans.registers[0]/1.0
+            data["temp"] = ans.registers[0]/10.0
     reply_q.put(["pyro",data])
-    print "Pyro data: ",data
     q.task_done()
 
 def main():
@@ -383,7 +378,7 @@ def main():
     #python script, containg: <user>,<passw>,<domain>,<repldb_name>,<dbname>
     #example: user1,password1,domain,database-repl,database
     try:
-        with open('/home/marcus/git/pycewe/.credentials', 'r') as f:
+        with open('.credentials', 'r') as f:
             file_data = f.read()
             #print read_data
             creds = file_data.split(',')
@@ -403,11 +398,11 @@ def main():
       'repldb': repldb,
       'db': dbname
     }
-
+    print credentials
     #print credentials
-    #while not setup_couchdb(credentials):
-    #    print "Could not connect to database. Retrying soon..."
-    #    time.sleep(2)
+    while not setup_couchdb(credentials):
+        print "Could not connect to database. Retrying soon..."
+        time.sleep(2)
         
 
     addr_q = Queue.Queue()
@@ -415,7 +410,6 @@ def main():
     send_q = Queue.Queue()
     register_q = Queue.Queue()    
     
-    #address = q.get()
 
     socketlist = setup_socket("192.168.1.3")
     s1 = socketlist[0]
@@ -469,11 +463,11 @@ def main():
             print "Threads running"
             addr_q.join()
             register_q.join()
-
+            print "Reply queue size: ", reply_q.qsize()
             ansarr = []
             print "Threads joined"            
             ansarr.append(reply_q.get(block=True))
-            print "Read first",ansarr[0]
+            print "Read first",ansarr
             ansarr.append(reply_q.get(block=True))
             print "Read second",ansarr[1]
             ansarr.append(reply_q.get(block=True))
@@ -493,9 +487,8 @@ def main():
                 "pyro":pyro,
                 "timestamp":int(time.time()*1000)
             }
-
             print data
-            #send_q.put(data)
+            send_q.put(data)
             t1 = time.time()
             total = t1-t0
             if (1-total)>0.05:
@@ -503,7 +496,6 @@ def main():
             now = time.time()
             times.append(now-t0)
             print ".",
-            #print data
             #send_to_db2(data)
 
             #send('END') 
@@ -524,10 +516,10 @@ def main():
             #s.close()
 
 if __name__ == "__main__":
-    #while True:
-        #try:
-    main()
-        #except:
-        #    print "Error, retrying in 10 seconds"
-        #    time.sleep(10)
-        #    pass
+    while True:
+        try:
+            main()
+        except:
+            print "Error, retrying in 10 seconds"
+            time.sleep(10)
+            pass
