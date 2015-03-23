@@ -12,6 +12,7 @@ import datetime
 import couchdb
 import threading
 import Queue
+import struct
 from pymodbus.client.sync import ModbusSerialClient as Modbus
 from socket import gethostbyname, gaierror
 PORT = 10001 #Electricity meter port
@@ -29,8 +30,8 @@ BCC = "\xFF"
 
 PASSWORD = "(ABCDEF)"
 
-couch = None
-db = None
+couchlocal = None
+dblocal = None
 s = None
 
 timeoutModbus = 0.1
@@ -38,13 +39,14 @@ portName = '/dev/ttyUSB0'
 Pyro = Modbus(method='rtu', port=portName, baudrate=38400, timeout=timeoutModbus, stopbits = 1, parity = 'E')
 
 
-def setup_couchdb(credentials):
-   global couch
-   global db
-   couch = couchdb.Server("https://%(domain)s" % credentials)
-   couch.resource.credentials = ('%(user)s' % credentials,"%(passw)s" % credentials)
+def setup_couchdb_local(credentials):
+   global couchlocal
+   global dblocal
+   print "Using credentials: ",credentials
+   couchlocal = couchdb.Server("%(protocol)s://%(domain)s" % credentials)
+   couchlocal.resource.credentials = ('%(user)s' % credentials,"%(passw)s" % credentials)
    try:
-       db = couch['%(db)s' % credentials] # existing
+       dblocal = couchlocal['%(db)s' % credentials] # existing
    except:
        return False
    return True
@@ -214,7 +216,10 @@ def ans_to_list(data):
     strlist = newstr.split(",")
     floatlist = []
     for s in strlist:
-        floatlist.append(float(s))
+        try:
+            floatlist.append(float(s))
+        except ValueError:
+            print "ValueError when converting: ",s," to float."
     return floatlist
 
 def ans_to_list_str(data):
@@ -249,18 +254,19 @@ def unix_time_millis(dt):
 
 def send_to_db2(q,credentials):
     size = q.qsize()
-    if size>10:
+    if size>3600:
         print "Queue size is 10, sending"
         doc_arr = []
         for i in range(0,size):
             doc = q.get()
             doc_arr.append(doc)
             q.task_done()
-        db.update(doc_arr)
-        couch.replicate("%(db)s" % credentials,"https://%(user)s:%(passw)s@%(domain)s/%(repldb)s" % credentials)
+        dblocal.update(doc_arr)
+        print ("%(db)s" % credentials),"-->",("%(protocol)s://%(user)s:%(passw)s@%(domain)s/%(db)s" % credentials)
+        couchlocal.replicate("%(db)s" % credentials,"%(protocol)s://%(user)s:%(passw)s@%(domain)s/%(db)s" % credentials)
 
 def send_to_db(doc, creds):
-    url = ('https://%(domain)s/%(db)s' % creds)
+    url = ('%(protocol)s://%(domain)s/%(db)s' % creds)
     request = urllib2.Request(url, data=json.dumps(doc))
     auth = base64.encodestring('%(user)s:%(passw)s' % creds).replace("\n","")
     request.add_header('Authorization', 'Basic ' + auth)
@@ -356,17 +362,50 @@ def read_data(q,reply_q):
         reply_q.put(["wind",data])
     q.task_done()
 
+def s16_to_int(s16):
+    if s16 > 32767:
+        return s16 - 65536
+    else:
+        return s16
+
 def read_modbus_pyro(q,reply_q):
     reg = q.get()
     data = {}
-    
-    for r in reg:
-        ans = Pyro.read_input_registers(r, 1, unit=1)
-        if r == 5:
-            data["radiance"] = ans.registers[0]/10.0
-        if r == 8:        
-            data["temp"] = ans.registers[0]/10.0
-    reply_q.put(["pyro",data])
+    try:    
+        for r in reg:
+            ans = Pyro.read_input_registers(r, 1, unit=1)
+            if r == 0:
+                data["dev_type"] = ans.registers[0]
+            if r == 1:
+                data["data_mode_ver"] = ans.registers[0]
+            if r == 2:
+                data["op_mode"] = ans.registers[0]
+            if r == 3:
+                data["status"] = ans.registers[0]
+                if ans.registers[0] == 8:
+                    ans = Pyro.read_input_registers(26,1,unit=1)
+                    data["error_code"] = ans.registers[0]
+            if r == 4:
+                data["scale_factor"] = s16_to_int(ans.registers[0])
+            if r == 5:
+                data["radiance"] = s16_to_int(ans.registers[0])/1.0
+            if r == 6:
+                data["raw_radiance"] = s16_to_int(ans.registers[0])
+            if r == 8:        
+                data["temp"] = s16_to_int(ans.registers[0])/10.0
+            if r == 9:        
+                data["ext_voltage"] = s16_to_int(ans.registers[0])/10.0
+
+        data["error"] = False
+        reply_q.put(["pyro",data])
+    except AttributeError:
+        data["scale_factor"] = 0
+        data["radiance"] = 0
+        data["temp"] = 0
+        data["ext_voltage"] = 0
+        data["error"] = True
+        reply_q.put(["pyro",data])
+        print "Pyranometer data AttributeError. Error in reading Pyranometer, incomplete data."
     q.task_done()
 
 def main():
@@ -378,29 +417,46 @@ def main():
     #python script, containg: <user>,<passw>,<domain>,<repldb_name>,<dbname>
     #example: user1,password1,domain,database-repl,database
     try:
-        with open('.credentials', 'r') as f:
+        with open('.credentials_remote', 'r') as f:
             file_data = f.read()
             #print read_data
             creds = file_data.split(',')
             user = creds[0]
             passw = creds[1]
-            domain = creds[2]
-            repldb = creds[3]
+            protocol = creds[2]
+            domain = creds[3]
             dbname = creds[4].replace('\n','')
+        with open('.credentials_local', 'r') as f:
+            file_data = f.read()
+            #print read_data
+            creds = file_data.split(',')
+            luser = creds[0]
+            lpassw = creds[1]
+            lprotocol = creds[2]
+            ldomain = creds[3]
+            ldbname = creds[4].replace('\n','')
     except:
         print "Error opening credentials file."
         raise
 
-    credentials = {
+    credentials_remote = {
       'user': user,
       'passw': passw,
+      'protocol':protocol,
       'domain': domain,
-      'repldb': repldb,
       'db': dbname
     }
-    print credentials
+    credentials_local = {
+      'user': luser,
+      'passw': lpassw,
+      'protocol': lprotocol,
+      'domain': ldomain,
+      'db': ldbname
+    }
+    print "Local creds: ",credentials_local
+    print "Remote creds: ",credentials_remote
     #print credentials
-    while not setup_couchdb(credentials):
+    while not setup_couchdb_local(credentials_local):
         print "Could not connect to database. Retrying soon..."
         time.sleep(2)
         
@@ -430,11 +486,11 @@ def main():
     
     send(s1,'/?!\r\n')
     send(s1,[ACK,"051\r\n"]) #050 Data readout,#051 programming mode
-    send(s1,[SOH,"P2",STX,"(AAAAAA)",ETX]) #<SOH>P2<STX>(ABCDEF)<ETX><BCC>
+    send(s1,[SOH,"P2",STX,"(ABCDEF)",ETX]) #<SOH>P2<STX>(ABCDEF)<ETX><BCC>
 
     send(s2,'/?!\r\n')
     send(s2,[ACK,"051\r\n"]) #050 Data readout,#051 programming mode
-    send(s2,[SOH,"P2",STX,"(AAAAAA)",ETX]) #<SOH>P2<STX>(ABCDEF)<ETX><BCC>
+    send(s2,[SOH,"P2",STX,"(ABCDEF)",ETX]) #<SOH>P2<STX>(ABCDEF)<ETX><BCC>
 
     times = []
 
@@ -445,7 +501,7 @@ def main():
             t0 = time.time()
             thread1 = threading.Thread(target=read_data,args=(addr_q,reply_q,))
             thread2 = threading.Thread(target=read_data,args=(addr_q,reply_q,))
-            thread3 = threading.Thread(target=send_to_db2,args=(send_q,credentials,))
+            thread3 = threading.Thread(target=send_to_db2,args=(send_q,credentials_remote,))
             thread4 = threading.Thread(target=read_modbus_pyro,args=(register_q,reply_q,))
             thread1.daemon = True
             thread2.daemon = True
@@ -458,7 +514,7 @@ def main():
 
             addr_q.put(s1)
             addr_q.put(s2)
-            register_q.put([5,8])
+            register_q.put([0,1,2,3,4,5,6,8,9])
 
             print "Threads running"
             addr_q.join()
@@ -516,10 +572,11 @@ def main():
             #s.close()
 
 if __name__ == "__main__":
-    while True:
-        try:
-            main()
-        except:
-            print "Error, retrying in 10 seconds"
-            time.sleep(10)
-            pass
+    main()
+    #while True:
+    #    try:
+    #        main()
+    #    except:
+    #        print "Error, retrying in 10 seconds"
+    #        time.sleep(10)
+    #        pass
