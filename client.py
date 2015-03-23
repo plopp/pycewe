@@ -26,6 +26,10 @@ LF = "\x0A"
 
 BCC = "\xFF"
 
+def sampleToFile(doc):
+    f = open('/mnt/ramdisk/out.json','w')
+    f.write(doc)
+    f.close()
 
 
 PASSWORD = "(ABCDEF)"
@@ -255,7 +259,7 @@ def unix_time_millis(dt):
 def send_to_db2(q,credentials):
     size = q.qsize()
     if size>3600:
-        print "Queue size is 10, sending"
+        print "Queue size is ",size," sending"
         doc_arr = []
         for i in range(0,size):
             doc = q.get()
@@ -544,6 +548,7 @@ def main():
                 "timestamp":int(time.time()*1000)
             }
             print data
+            sampleToFile(json.dumps(data))
             send_q.put(data)
             t1 = time.time()
             total = t1-t0
