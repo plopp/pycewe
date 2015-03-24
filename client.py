@@ -146,6 +146,9 @@ def recv(s):
                 begin = time.time()
             else:
                 time.sleep(0.1)
+        except KeyboardInterrupt:
+            break
+            raise
         except Exception as e:
             pass
     bytes = ''.join(total_data)
@@ -292,6 +295,7 @@ def read_data(q,reply_q):
     data2 = ans_to_list(data2ans)
     temp = send(s,[SOH,"R1",STX,"100700(1)",ETX])
     tempdata = ans_to_list(temp)
+    print "Got answer from meter"
     data = {
         "meter_time":metertime_to_time(metertime),
         #"act_ener_imp": data1[0], #Wh
@@ -364,6 +368,7 @@ def read_data(q,reply_q):
         reply_q.put(["solar",data])
     elif s.getpeername()[0] == "192.168.1.4":
         reply_q.put(["wind",data])
+    print "Task done."
     q.task_done()
 
 def s16_to_int(s16):
@@ -531,7 +536,7 @@ def main():
             ansarr.append(reply_q.get(block=True))
             print "Read second",ansarr[1]
             ansarr.append(reply_q.get(block=True))
-            print "Read thirds",ansarr[2]
+            print "Read third",ansarr[2]
             print "Reading reply_q"
             for post in ansarr:
                 if post[0] == "wind":
@@ -558,7 +563,6 @@ def main():
             times.append(now-t0)
             print ".",
             #send_to_db2(data)
-
             #send('END') 
     finally:
         send_without_recv(s1,[SOH,"B0",ETX])
@@ -577,7 +581,10 @@ def main():
             #s.close()
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        raise
     #while True:
     #    try:
     #        main()
