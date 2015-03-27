@@ -285,7 +285,7 @@ def read_data(q,reply_q):
     #print "Running read_data"
     s = q.get()   
     # Send data
-    print "Sending data"
+    #print "Sending data"
 
     timeans = send(s,[SOH,"R1",STX,"100C00(1)",ETX])
     metertime =  ans_to_list_str(timeans)
@@ -295,7 +295,7 @@ def read_data(q,reply_q):
     data2 = ans_to_list(data2ans)
     temp = send(s,[SOH,"R1",STX,"100700(1)",ETX])
     tempdata = ans_to_list(temp)
-    print "Got answer from meter"
+    #print "Got answer from meter"
     data = {
         "meter_time":metertime_to_time(metertime),
         #"act_ener_imp": data1[0], #Wh
@@ -368,7 +368,7 @@ def read_data(q,reply_q):
         reply_q.put(["solar",data])
     elif s.getpeername()[0] == "192.168.1.4":
         reply_q.put(["wind",data])
-    print "Task done."
+    #print "Task done."
     q.task_done()
 
 def s16_to_int(s16):
@@ -377,45 +377,84 @@ def s16_to_int(s16):
     else:
         return s16
 
+
+def read_modbus(q,reply_q):
+    qaddr = q.get()
+    data = {}
+    for addr in qaddr:
+        #print "ADDR: ",addr
+        if addr==1:
+            try:
+                ans = Pyro.read_input_registers(0, 56, unit=int(addr))
+                data["dir"]=ans.registers[6]/100.0
+                data["speed"]=ans.registers[5]/100.0
+                data["temp"]=ans.registers[0]/100.0
+                data["error"] = False
+                reply_q.put([''.join(["anemo",str(addr)]),data])
+                data = {}
+            except AttributeError:
+                print "Attribute error!"
+                data["dir"] = 0.0
+                data["speed"] = 0.0
+                data["temp"] = 0.0
+                data["error"] = True
+                reply_q.put([''.join(["anemo",str(addr)]),data])
+                data = {}
+                print "Error reading anemometer ",addr
+                pass
+        elif addr==2:
+            try:
+                ans = Pyro.read_input_registers(0, 56, unit=int(addr))
+                data["dir"]=ans.registers[6]/100.0
+                data["speed"]=ans.registers[5]/100.0
+                data["temp"]=ans.registers[0]/100.0
+                data["error"] = False
+                reply_q.put([''.join(["anemo",str(addr)]),data])
+                data = {}
+            except AttributeError:
+                print "Attribute error!"
+                data["dir"] = 0.0
+                data["speed"] = 0.0
+                data["temp"] = 0.0
+                data["error"] = True
+                reply_q.put([''.join(["anemo",str(addr)]),data])
+                data = {}
+                print "Error reading anemometer ",addr
+                pass
+        elif addr==3:
+            try:    
+                ans = Pyro.read_input_registers(0, 10, unit=int(addr))
+                data["dev_type"] = ans.registers[0]
+                data["data_mode_ver"] = ans.registers[1]
+                data["op_mode"] = ans.registers[2]
+                data["status"] = ans.registers[3]
+                if ans.registers[0] == 8:
+                    ans2 = Pyro.read_input_registers(26,1,unit=3)
+                    data["error_code"] = ans2.registers[0]
+                data["scale_factor"] = s16_to_int(ans.registers[4])
+                data["radiance"] = s16_to_int(ans.registers[5])/1.0
+                data["raw_radiance"] = s16_to_int(ans.registers[6])
+                data["temp"] = s16_to_int(ans.registers[8])/10.0
+                data["ext_voltage"] = s16_to_int(ans.registers[9])/10.0
+                data["error"] = False
+                reply_q.put(["pyro",data])
+                data = {}
+            except AttributeError:
+                data["scale_factor"] = 0
+                data["radiance"] = 0
+                data["temp"] = 0
+                data["ext_voltage"] = 0
+                data["error"] = True
+                reply_q.put(["pyro",data])
+                data = {}
+                print "Pyranometer data AttributeError. Error in reading Pyranometer, incomplete data."
+                pass
+            finally:
+                q.task_done()
+
 def read_modbus_pyro(q,reply_q):
     reg = q.get()
     data = {}
-    try:    
-        for r in reg:
-            ans = Pyro.read_input_registers(r, 1, unit=1)
-            if r == 0:
-                data["dev_type"] = ans.registers[0]
-            if r == 1:
-                data["data_mode_ver"] = ans.registers[0]
-            if r == 2:
-                data["op_mode"] = ans.registers[0]
-            if r == 3:
-                data["status"] = ans.registers[0]
-                if ans.registers[0] == 8:
-                    ans = Pyro.read_input_registers(26,1,unit=1)
-                    data["error_code"] = ans.registers[0]
-            if r == 4:
-                data["scale_factor"] = s16_to_int(ans.registers[0])
-            if r == 5:
-                data["radiance"] = s16_to_int(ans.registers[0])/1.0
-            if r == 6:
-                data["raw_radiance"] = s16_to_int(ans.registers[0])
-            if r == 8:        
-                data["temp"] = s16_to_int(ans.registers[0])/10.0
-            if r == 9:        
-                data["ext_voltage"] = s16_to_int(ans.registers[0])/10.0
-
-        data["error"] = False
-        reply_q.put(["pyro",data])
-    except AttributeError:
-        data["scale_factor"] = 0
-        data["radiance"] = 0
-        data["temp"] = 0
-        data["ext_voltage"] = 0
-        data["error"] = True
-        reply_q.put(["pyro",data])
-        print "Pyranometer data AttributeError. Error in reading Pyranometer, incomplete data."
-    q.task_done()
 
 def main():
     passw = ""
@@ -473,7 +512,7 @@ def main():
     addr_q = Queue.Queue()
     reply_q = Queue.Queue()
     send_q = Queue.Queue()
-    register_q = Queue.Queue()    
+    modbus_addr_q = Queue.Queue()    
     
 
     socketlist = setup_socket("192.168.1.3")
@@ -511,47 +550,64 @@ def main():
             thread1 = threading.Thread(target=read_data,args=(addr_q,reply_q,))
             thread2 = threading.Thread(target=read_data,args=(addr_q,reply_q,))
             thread3 = threading.Thread(target=send_to_db2,args=(send_q,credentials_remote,))
-            thread4 = threading.Thread(target=read_modbus_pyro,args=(register_q,reply_q,))
+            thread4 = threading.Thread(target=read_modbus,args=(modbus_addr_q,reply_q,))
+
             thread1.daemon = True
             thread2.daemon = True
             thread3.daemon = True
             thread4.daemon = True
+
+
+            addr_q.put(s1)
+            addr_q.put(s2)
+            modbus_addr_q.put([1,2,3])
+
             thread1.start()
             thread2.start()
             thread3.start()
             thread4.start()
 
-            addr_q.put(s1)
-            addr_q.put(s2)
-            register_q.put([0,1,2,3,4,5,6,8,9])
-
-            print "Threads running"
+            #print "Threads running"
             addr_q.join()
-            register_q.join()
-            print "Reply queue size: ", reply_q.qsize()
+            modbus_addr_q.join()
+            #print "Reply queue size: ", reply_q.qsize()
             ansarr = []
-            print "Threads joined"            
+            #print "Threads joined"            
             ansarr.append(reply_q.get(block=True))
-            print "Read first",ansarr
+            #print "Read first",ansarr[0]
             ansarr.append(reply_q.get(block=True))
-            print "Read second",ansarr[1]
+            #print "Read second",ansarr[1]
             ansarr.append(reply_q.get(block=True))
-            print "Read third",ansarr[2]
-            print "Reading reply_q"
+            #print "Read third",ansarr[2]
+            ansarr.append(reply_q.get(block=True))
+            #print "Read fourth",ansarr[3]
+            ansarr.append(reply_q.get(block=True))
+            #print "Read fifth",ansarr[4]
+
+            #print "Reading reply_q"
             for post in ansarr:
+                #print "POST: ",post[0]
                 if post[0] == "wind":
                     wind = post[1]
                 elif post[0] == "solar":
                     solar = post[1]
                 elif post[0] == "pyro":
                     pyro = post[1]
+                elif post[0] == "anemo1":
+                    anemo1 = post[1]
+                elif post[0] == "anemo2":
+                    anemo2 = post[1]
+                
 
             data = {
                 "wind":wind,
                 "solar":solar,
                 "pyro":pyro,
+                "anemo1":anemo1,
+                "anemo2":anemo2,
                 "timestamp":int(time.time()*1000)
             }
+
             print data
             sampleToFile(json.dumps(data))
             send_q.put(data)
