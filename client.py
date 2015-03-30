@@ -109,6 +109,7 @@ def send_without_recv(s,bytes):
 
 def send(s,bytes):
     send_without_recv(s,bytes)
+    #print "Tx: ",bytes
     data = recv(s)
     return data
 
@@ -118,39 +119,55 @@ def recv(s):
     total_data = []
     begin = time.time()
     timeout = 5
-    #print "Waiting"
+    name = s.getpeername()[0]
+    waitForBcc = False
+    #print "Waiting",name
     while True:
-        if total_data and time.time()-begin > timeout:
-            print "Timeout 1!"
+        if len(total_data) > 0 and (time.time()-begin) > timeout:
+            print "Timeout 1! ***********************************************",name
             break
             #raise Exception("Connection timeout")
-        elif time.time()-begin > timeout*2:
-            print "Timeout 2!"
+        elif (time.time()-begin) > timeout*2:
+            print "Timeout 2!",name
             break
             #raise Exception("Connection timeout")
         try:
             data = s.recv(4096) 
-            #print "Data: ",data
+            #print "Rx: ",prettify(data),name
             #for idx,byte in enumerate(bytes):                
-            if data:
+            #    print "SPLIT: ",ord(byte)
+            if len(data) > 0:
+                #print "Last: ",ord(data[len(data)-1])
+                begin = time.time()
                 total_data.append(data)
                 #print "Response time: ",time.time()-begin
-                if ord(data[len(data)-2])==ord(ETX):
-                    #print "ETXEND!"
+                #print ord(data[len(data)-2])
+                if waitForBcc:
+                    waitForBcc = False
+                    #print "Got BCC!",data,name
+                    break
+                elif (ord(data[len(data)-1])==ord(ETX)) and (ord(data[len(data)-2]) != ord(ETX)):
+                    #print "ETXEND! WAITING FOR BCC",name
+                    #Received ETX but not BCC-byte. Set flag and wait for it and then break.
+                    waitForBcc = True
+                elif ord(data[len(data)-2])==ord(ETX):
+                    #print "ETXEND!",name
                     break
                 elif ord(data[len(data)-1])==ord('\n') and ord(data[len(data)-2])==ord('\r'):
-                    #print "CRLFEND!"
+                    #print "CRLFEND!",name
                     break
                 elif ord(data[len(data)-1])==ord(ACK):
                     break
-                begin = time.time()
-            else:
-                time.sleep(0.1)
+            #else:
+                #print "NO DATA"
         except KeyboardInterrupt:
             break
             raise
         except Exception as e:
+            #print e
+            #raise
             pass
+    #print "Out of loop",name
     bytes = ''.join(total_data)
     if bytes == "END":
         #print "END received."
@@ -190,7 +207,7 @@ def recv(s):
     
     prettybytes = prettify(bytes)
     
-
+    #print "Returning data",name
     if error:
         print >>sys.stderr, 'Warning! BBC not OK: Received "%s"' % prettybytes
     else:
@@ -261,7 +278,7 @@ def unix_time_millis(dt):
 
 def send_to_db2(q,credentials):
     size = q.qsize()
-    if size>3600:
+    if size>60:
         print "Queue size is ",size," sending"
         doc_arr = []
         for i in range(0,size):
@@ -285,19 +302,21 @@ def read_data(q,reply_q):
     #print "Running read_data"
     s = q.get()   
     # Send data
-    #print "Sending data"
-
-    timeans = send(s,[SOH,"R1",STX,"100C00(1)",ETX])
-    metertime =  ans_to_list_str(timeans)
-    data1ans = send(s,[SOH,"R1",STX,"100800(1)",ETX])
-    data1 =  ans_to_list(data1ans)
-    data2ans = send(s,[SOH,"R1",STX,"015200(1)",ETX])
-    data2 = ans_to_list(data2ans)
-    temp = send(s,[SOH,"R1",STX,"100700(1)",ETX])
-    tempdata = ans_to_list(temp)
-    #print "Got answer from meter"
-    data = {
-        "meter_time":metertime_to_time(metertime),
+    name = s.getpeername()[0]
+    #print "Sorting data",name
+    try:
+        timeans = send(s,[SOH,"R1",STX,"100C00(1)",ETX])
+        metertime =  ans_to_list_str(timeans)
+        data1ans = send(s,[SOH,"R1",STX,"100800(1)",ETX])
+        data1 =  ans_to_list(data1ans)
+        data2ans = send(s,[SOH,"R1",STX,"015200(1)",ETX])
+        data2 = ans_to_list(data2ans)
+        temp = send(s,[SOH,"R1",STX,"100700(1)",ETX])
+        tempdata = ans_to_list(temp)
+        #tempdata = [0.0]
+        #print "Got answer from meter",name
+        data = {
+            "meter_time":metertime_to_time(metertime),
         #"act_ener_imp": data1[0], #Wh
         #"act_ener_exp": data1[1], #Wh
         #"rea_ener_q1": data1[2], #varh
@@ -310,21 +329,21 @@ def read_data(q,reply_q):
         #"rea_ener_exp": data1[9], #varh
         #"rea_ener_ind": data1[10], #varh
         #"rea_ener_cap": data1[11], #varh
-        "act_ener_imp_L1": data1[12], #Wh
-        "act_ener_imp_L2": data1[13], #Wh
-        "act_ener_imp_L3": data1[14], #Wh
-        "act_ener_exp_L1": data1[15], #Wh
-        "act_ener_exp_L2": data1[16], #Wh
-        "act_ener_exp_L3": data1[17], #Wh
+            "act_ener_imp_L1": data1[12], #Wh
+            "act_ener_imp_L2": data1[13], #Wh
+            "act_ener_imp_L3": data1[14], #Wh
+            "act_ener_exp_L1": data1[15], #Wh
+            "act_ener_exp_L2": data1[16], #Wh
+            "act_ener_exp_L3": data1[17], #Wh
         #"pha_volt_L1":data2[0], #V
         #"pha_volt_L2":data2[1], #V
         #"pha_volt_L3":data2[2], #V
         #"main_volt_L1_L2":data2[3], #V
         #"main_volt_L2_L3":data2[4], #V
         #"main_volt_L3_L1":data2[5], #V
-        "current_L1":data2[6], #A
-        "current_L2":data2[7], #A
-        "current_L3":data2[8], #A
+            "current_L1":data2[6], #A
+            "current_L2":data2[7], #A
+            "current_L3":data2[8], #A
         #"pha_sym_volt_L1":data2[9], #rad
         #"pha_sym_volt_L2":data2[10], #rad
         #"pha_sym_volt_L3":data2[11], #rad
@@ -334,12 +353,12 @@ def read_data(q,reply_q):
         #"pha_angle_L1":data2[15], #rad
         #"pha_angle_L2":data2[16], #rad
         #"pha_angle_L3":data2[17], #rad
-        "pow_fact_L1":data2[18], 
-        "pow_fact_L2":data2[19],
-        "pow_fact_L3":data2[20],
-        "act_pow_L1":data2[21], #W
-        "act_pow_L2":data2[22], #W
-        "act_pow_L3":data2[23], #W
+            "pow_fact_L1":data2[18], 
+            "pow_fact_L2":data2[19],
+            "pow_fact_L3":data2[20],
+            "act_pow_L1":data2[21], #W
+            "act_pow_L2":data2[22], #W
+            "act_pow_L3":data2[23], #W
         #"rea_pow_L1":data2[24], #var
         #"rea_pow_L2":data2[25], #var
         #"rea_pow_L3":data2[26], #var
@@ -352,23 +371,100 @@ def read_data(q,reply_q):
         #"thd_cur_L1":data2[33],
         #"thd_cur_L2":data2[34],
         #"thd_cur_L3":data2[35],
-        "tot_act_power":data2[36], #W
+            "tot_act_power":data2[36], #W
         #"tot_rea_power":data2[37], #var
         #"tot_app_power":data2[38], #VA
-        "tot_pow_fact":data2[39],
+            "tot_pow_fact":data2[39],
         #"tot_pha_angle":data2[40],
-        "frequency":data2[41], #Hz
+            "frequency":data2[41], #Hz
         #"vt_ratio":data2[42],
-        "ct_ratio":data2[43],
+            "ct_ratio":data2[43],
         #"sec_nom_volt":data2[44], #V
         #"sec_nom_cur":data2[45], #A
-        "temperature":tempdata[0] #C
-    }
-    if s.getpeername()[0] == "192.168.1.3":
-        reply_q.put(["solar",data])
-    elif s.getpeername()[0] == "192.168.1.4":
-        reply_q.put(["wind",data])
-    #print "Task done."
+            "temperature":tempdata[0], #C
+            "error":False
+        }
+        if s.getpeername()[0] == "192.168.1.3":
+            reply_q.put(["solar",data])
+        elif s.getpeername()[0] == "192.168.1.4":
+            reply_q.put(["wind",data])
+        #print "Putting reply",name
+    except:
+        data = {
+            "meter_time":0,
+        #"act_ener_imp": data1[0], #Wh
+        #"act_ener_exp": data1[1], #Wh
+        #"rea_ener_q1": data1[2], #varh
+        #"rea_ener_q2": data1[3], #varh
+        #"rea_ener_q3": data1[4], #varh
+        #"rea_ener_q4": data1[5], #varh
+        #"app_ener_imp": data1[6], #V Ah
+        #"app_ener_exp": data1[7], #V Ah
+        #"rea_ener_imp": data1[8], #varh
+        #"rea_ener_exp": data1[9], #varh
+        #"rea_ener_ind": data1[10], #varh
+        #"rea_ener_cap": data1[11], #varh
+            "act_ener_imp_L1": 0, #Wh
+            "act_ener_imp_L2": 0, #Wh
+            "act_ener_imp_L3": 0, #Wh
+            "act_ener_exp_L1": 0, #Wh
+            "act_ener_exp_L2": 0, #Wh
+            "act_ener_exp_L3": 0, #Wh
+        #"pha_volt_L1":data2[0], #V
+        #"pha_volt_L2":data2[1], #V
+        #"pha_volt_L3":data2[2], #V
+        #"main_volt_L1_L2":data2[3], #V
+        #"main_volt_L2_L3":data2[4], #V
+        #"main_volt_L3_L1":data2[5], #V
+            "current_L1":0, #A
+            "current_L2":0, #A
+            "current_L3":0, #A
+        #"pha_sym_volt_L1":data2[9], #rad
+        #"pha_sym_volt_L2":data2[10], #rad
+        #"pha_sym_volt_L3":data2[11], #rad
+        #"pha_sym_current_L1":data2[12], #rad
+        #"pha_sym_current_L2":data2[13], #rad
+        #"pha_sym_current_L3":data2[14], #rad
+        #"pha_angle_L1":data2[15], #rad
+        #"pha_angle_L2":data2[16], #rad
+        #"pha_angle_L3":data2[17], #rad
+            "pow_fact_L1":0, 
+            "pow_fact_L2":0,
+            "pow_fact_L3":0,
+            "act_pow_L1":0, #W
+            "act_pow_L2":0, #W
+            "act_pow_L3":0, #W
+        #"rea_pow_L1":data2[24], #var
+        #"rea_pow_L2":data2[25], #var
+        #"rea_pow_L3":data2[26], #var
+        #"app_pow_L1":data2[27], #VA
+        #"app_pow_L2":data2[28], #VA
+        #"app_pow_L3":data2[29], #VA
+        #"thd_volt_L1":data2[30],
+        #"thd_volt_L2":data2[31],
+        #"thd_volt_L3":data2[32],
+        #"thd_cur_L1":data2[33],
+        #"thd_cur_L2":data2[34],
+        #"thd_cur_L3":data2[35],
+            "tot_act_power":0, #W
+        #"tot_rea_power":data2[37], #var
+        #"tot_app_power":data2[38], #VA
+            "tot_pow_fact":0,
+        #"tot_pha_angle":data2[40],
+            "frequency":0, #Hz
+        #"vt_ratio":data2[42],
+            "ct_ratio":0,
+        #"sec_nom_volt":data2[44], #V
+        #"sec_nom_cur":data2[45], #A
+            "temperature":0, #C
+            "error":True
+        }
+        if s.getpeername()[0] == "192.168.1.3":
+            reply_q.put(["solar",data])
+        elif s.getpeername()[0] == "192.168.1.4":
+            reply_q.put(["wind",data])        
+        #print "Power meter error"
+    #print "Meter task done.",name
     q.task_done()
 
 def s16_to_int(s16):
@@ -501,6 +597,7 @@ def main():
       'domain': ldomain,
       'db': ldbname
     }
+
     print "Local creds: ",credentials_local
     print "Remote creds: ",credentials_remote
     #print credentials
@@ -531,6 +628,8 @@ def main():
     except:
         print "Could not connect to 192.168.1.4"
         raise
+
+
     
     send(s1,'/?!\r\n')
     send(s1,[ACK,"051\r\n"]) #050 Data readout,#051 programming mode
@@ -583,7 +682,6 @@ def main():
             #print "Read fourth",ansarr[3]
             ansarr.append(reply_q.get(block=True))
             #print "Read fifth",ansarr[4]
-
             #print "Reading reply_q"
             for post in ansarr:
                 #print "POST: ",post[0]
@@ -608,16 +706,16 @@ def main():
                 "timestamp":int(time.time()*1000)
             }
 
-            print data
+            #print data
             sampleToFile(json.dumps(data))
             send_q.put(data)
             t1 = time.time()
             total = t1-t0
-            if (1-total)>0.05:
-                time.sleep(1-total)
+            #if (1-total)>0.05:
+            #    time.sleep(1-total)
             now = time.time()
-            times.append(now-t0)
-            print ".",
+            #times.append(now-t0)
+            print ".",total,' ',now
             #send_to_db2(data)
             #send('END') 
     finally:
@@ -626,7 +724,7 @@ def main():
         s1.close()
         s2.close()
         Pyro.close()
-
+        print "Closed."
         sum = 0
         for i in times:
             sum+=i
