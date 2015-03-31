@@ -284,10 +284,10 @@ def send_to_db2(q,credentials):
         for i in range(0,size):
             doc = q.get()
             doc_arr.append(doc)
-            q.task_done()
         dblocal.update(doc_arr)
         print ("%(db)s" % credentials),"-->",("%(protocol)s://%(user)s:%(passw)s@%(domain)s/%(db)s" % credentials)
         couchlocal.replicate("%(db)s" % credentials,"%(protocol)s://%(user)s:%(passw)s@%(domain)s/%(db)s" % credentials)
+        q.task_done()
 
 def send_to_db(doc, creds):
     url = ('%(protocol)s://%(domain)s/%(db)s' % creds)
@@ -317,8 +317,8 @@ def read_data(q,reply_q):
         #print "Got answer from meter",name
         data = {
             "meter_time":metertime_to_time(metertime),
-        #"act_ener_imp": data1[0], #Wh
-        #"act_ener_exp": data1[1], #Wh
+            "act_ener_imp": data1[0], #Wh
+            "act_ener_exp": data1[1], #Wh
         #"rea_ener_q1": data1[2], #varh
         #"rea_ener_q2": data1[3], #varh
         #"rea_ener_q3": data1[4], #varh
@@ -335,9 +335,9 @@ def read_data(q,reply_q):
             "act_ener_exp_L1": data1[15], #Wh
             "act_ener_exp_L2": data1[16], #Wh
             "act_ener_exp_L3": data1[17], #Wh
-        #"pha_volt_L1":data2[0], #V
-        #"pha_volt_L2":data2[1], #V
-        #"pha_volt_L3":data2[2], #V
+            "pha_volt_L1":data2[0], #V
+            "pha_volt_L2":data2[1], #V
+            "pha_volt_L3":data2[2], #V
         #"main_volt_L1_L2":data2[3], #V
         #"main_volt_L2_L3":data2[4], #V
         #"main_volt_L3_L1":data2[5], #V
@@ -350,12 +350,12 @@ def read_data(q,reply_q):
         #"pha_sym_current_L1":data2[12], #rad
         #"pha_sym_current_L2":data2[13], #rad
         #"pha_sym_current_L3":data2[14], #rad
-        #"pha_angle_L1":data2[15], #rad
-        #"pha_angle_L2":data2[16], #rad
-        #"pha_angle_L3":data2[17], #rad
-            "pow_fact_L1":data2[18], 
-            "pow_fact_L2":data2[19],
-            "pow_fact_L3":data2[20],
+            "pha_angle_L1":data2[15], #rad
+            "pha_angle_L2":data2[16], #rad
+            "pha_angle_L3":data2[17], #rad
+            #"pow_fact_L1":data2[18], 
+            #"pow_fact_L2":data2[19],
+            #"pow_fact_L3":data2[20],
             "act_pow_L1":data2[21], #W
             "act_pow_L2":data2[22], #W
             "act_pow_L3":data2[23], #W
@@ -392,8 +392,8 @@ def read_data(q,reply_q):
     except:
         data = {
             "meter_time":0,
-        #"act_ener_imp": data1[0], #Wh
-        #"act_ener_exp": data1[1], #Wh
+            "act_ener_imp": 0, #Wh
+            "act_ener_exp": 0, #Wh
         #"rea_ener_q1": data1[2], #varh
         #"rea_ener_q2": data1[3], #varh
         #"rea_ener_q3": data1[4], #varh
@@ -410,12 +410,12 @@ def read_data(q,reply_q):
             "act_ener_exp_L1": 0, #Wh
             "act_ener_exp_L2": 0, #Wh
             "act_ener_exp_L3": 0, #Wh
-        #"pha_volt_L1":data2[0], #V
-        #"pha_volt_L2":data2[1], #V
-        #"pha_volt_L3":data2[2], #V
-        #"main_volt_L1_L2":data2[3], #V
-        #"main_volt_L2_L3":data2[4], #V
-        #"main_volt_L3_L1":data2[5], #V
+            "pha_volt_L1":0, #V
+            "pha_volt_L2":0, #V
+            "pha_volt_L3":0, #V
+            #"main_volt_L1_L2":0, #V
+            #"main_volt_L2_L3":0, #V
+            #"main_volt_L3_L1":0, #V
             "current_L1":0, #A
             "current_L2":0, #A
             "current_L3":0, #A
@@ -425,12 +425,12 @@ def read_data(q,reply_q):
         #"pha_sym_current_L1":data2[12], #rad
         #"pha_sym_current_L2":data2[13], #rad
         #"pha_sym_current_L3":data2[14], #rad
-        #"pha_angle_L1":data2[15], #rad
-        #"pha_angle_L2":data2[16], #rad
-        #"pha_angle_L3":data2[17], #rad
-            "pow_fact_L1":0, 
-            "pow_fact_L2":0,
-            "pow_fact_L3":0,
+            "pha_angle_L1":0, #rad
+            "pha_angle_L2":0, #rad
+            "pha_angle_L3":0, #rad
+            #"pow_fact_L1":0, 
+            #"pow_fact_L2":0,
+            #"pow_fact_L3":0,
             "act_pow_L1":0, #W
             "act_pow_L2":0, #W
             "act_pow_L3":0, #W
@@ -484,15 +484,25 @@ def read_modbus(q,reply_q):
                 ans = Pyro.read_input_registers(0, 56, unit=int(addr))
                 data["dir"]=ans.registers[6]/100.0
                 data["speed"]=ans.registers[5]/100.0
-                data["temp"]=ans.registers[0]/100.0
+                data["temph"]=ans.registers[0]/100.0
+                data["tempp"]=ans.registers[1]/100.0
+                data["pressure"]=((ans.registers[3] << 16) + ans.registers[2])/100.0
+                data["hum"]=(ans.registers[4])/100.0
+                data["voltage"]=ans.registers[12]/100.0
+                data["status"]=ans.registers[13]
                 data["error"] = False
                 reply_q.put([''.join(["anemo",str(addr)]),data])
                 data = {}
             except AttributeError:
                 print "Attribute error!"
-                data["dir"] = 0.0
-                data["speed"] = 0.0
-                data["temp"] = 0.0
+                data["dir"]=0
+                data["speed"]=0
+                data["temph"]=0
+                data["tempp"]=0
+                data["pressure"]=0
+                data["hum"]=0
+                data["voltage"]=0
+                data["status"]=0
                 data["error"] = True
                 reply_q.put([''.join(["anemo",str(addr)]),data])
                 data = {}
@@ -503,15 +513,21 @@ def read_modbus(q,reply_q):
                 ans = Pyro.read_input_registers(0, 56, unit=int(addr))
                 data["dir"]=ans.registers[6]/100.0
                 data["speed"]=ans.registers[5]/100.0
-                data["temp"]=ans.registers[0]/100.0
+                data["temph"]=ans.registers[0]/100.0
+                data["hum"]=(ans.registers[4])/100.0
+                data["voltage"]=ans.registers[12]/100.0
+                data["status"]=ans.registers[13]
                 data["error"] = False
                 reply_q.put([''.join(["anemo",str(addr)]),data])
                 data = {}
             except AttributeError:
                 print "Attribute error!"
-                data["dir"] = 0.0
-                data["speed"] = 0.0
-                data["temp"] = 0.0
+                data["dir"]=0
+                data["speed"]=0
+                data["temph"]=0
+                data["hum"]=0
+                data["voltage"]=0
+                data["status"]=0
                 data["error"] = True
                 reply_q.put([''.join(["anemo",str(addr)]),data])
                 data = {}
@@ -520,14 +536,10 @@ def read_modbus(q,reply_q):
         elif addr==3:
             try:    
                 ans = Pyro.read_input_registers(0, 10, unit=int(addr))
-                data["dev_type"] = ans.registers[0]
-                data["data_mode_ver"] = ans.registers[1]
-                data["op_mode"] = ans.registers[2]
                 data["status"] = ans.registers[3]
                 if ans.registers[0] == 8:
                     ans2 = Pyro.read_input_registers(26,1,unit=3)
                     data["error_code"] = ans2.registers[0]
-                data["scale_factor"] = s16_to_int(ans.registers[4])
                 data["radiance"] = s16_to_int(ans.registers[5])/1.0
                 data["raw_radiance"] = s16_to_int(ans.registers[6])
                 data["temp"] = s16_to_int(ans.registers[8])/10.0
@@ -536,8 +548,9 @@ def read_modbus(q,reply_q):
                 reply_q.put(["pyro",data])
                 data = {}
             except AttributeError:
-                data["scale_factor"] = 0
+                data["status"] = 0
                 data["radiance"] = 0
+                data["raw_radiance"] = 0
                 data["temp"] = 0
                 data["ext_voltage"] = 0
                 data["error"] = True

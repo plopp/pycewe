@@ -4,10 +4,15 @@
 import couchdb
 import time
 import sys,os
+import json
 
 os.chdir("/home/marcus/git/pycewe/")
 couch = None
 db = None
+
+couchremote = None
+dbremote = None
+
 def setup_couchdb(credentials):
    global couch
    global db
@@ -15,6 +20,14 @@ def setup_couchdb(credentials):
    couch.resource.credentials = ('%(user)s' % credentials,"%(passw)s" % credentials)
    db = couch['%(db)s' % credentials] # existing
 
+def setup_couchdb_remote(credentials):
+   global couchremote
+   global dbremote
+   print credentials
+   couchremote = couchdb.Server("%(protocol)s://%(domain)s" % credentials)
+   couchremote.resource.credentials = ('%(user)s' % credentials, "%(passw)s" % credentials)
+   dbremote = couch['%(db)s' % credentials]
+   
 def main():
 
     #There is got to be a text file named ".credentials" in the same folder as the
@@ -38,13 +51,44 @@ def main():
       'protocol' : protocol,
       'db': dbname
     }
+
+    with open('.credentials_remote', 'r') as f:
+        file_data = f.read()
+        #print read_data
+        creds = file_data.split(',')
+        user = creds[0]
+        passw = creds[1]
+        protocol = creds[2]
+        domain = creds[3]
+        dbname = creds[4].replace('\n','')
+
+
+    credentials_remote = {
+      'user': user,
+      'passw': passw,
+      'domain': domain,
+      'protocol' : protocol,
+      'db': dbname
+    }
     print credentials
 
     setup_couchdb(credentials)
-    start_key = int(time.time()*1000)-2*3600*1000
-    #start_key = int(time.time()*1000)-1*60*1000
+    setup_couchdb_remote(credentials_remote)
+
+    #Check the newest document in remote database
+    result_remote = dbremote.view("_design/time/_view/last",include_docs=False,limit=1,descending=True)
+
+    #start_key = int(time.time()*1000)-1800*1000
+    #start_key = int(time.time()*1000)-1*60*1000 
+
+    for row in result_remote:
+        start_key = row["key"]
+
     print start_key
+
     result = db.view("_design/time/_view/last", startkey=start_key, descending=True)
+
+
     print "Documents to purge: ",len(result)
     arr_delete = []
     for row in result:
