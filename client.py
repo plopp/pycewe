@@ -27,7 +27,7 @@ LF = "\x0A"
 BCC = "\xFF"
 
 def sampleToFile(doc):
-    f = open('/mnt/ramdisk/out.json','w')
+    f = open('/mnt/ramdisk/out.json','w+')
     f.write(doc)
     f.close()
 
@@ -125,12 +125,12 @@ def recv(s):
     while True:
         if len(total_data) > 0 and (time.time()-begin) > timeout:
             print "Timeout 1! ***********************************************",name
-            break
-            #raise Exception("Connection timeout")
+            #break
+            raise Exception("Connection timeout")
         elif (time.time()-begin) > timeout*2:
             print "Timeout 2!",name
-            break
-            #raise Exception("Connection timeout")
+            #break
+            raise Exception("Connection timeout")
         try:
             data = s.recv(4096) 
             #print "Rx: ",prettify(data),name
@@ -278,7 +278,7 @@ def unix_time_millis(dt):
 
 def send_to_db2(q,credentials):
     size = q.qsize()
-    if size>60:
+    if size>599:
         print "Queue size is ",size," sending"
         doc_arr = []
         for i in range(0,size):
@@ -616,7 +616,7 @@ def main():
     #print credentials
     while not setup_couchdb_local(credentials_local):
         print "Could not connect to database. Retrying soon..."
-        time.sleep(2)
+        time.sleep(10)
         
 
     addr_q = Queue.Queue()
@@ -627,30 +627,58 @@ def main():
 
     socketlist = setup_socket("192.168.1.3")
     s1 = socketlist[0]
-    try:
-        connect(s1,socketlist[1])
-    except:
-        print "Could not connect to 192.168.1.3"
-        raise
+    while True:
+        try:
+            print "Connecting to 192.168.1.3"
+            connect(s1,socketlist[1])
+            break
+        except:
+            print "Could not connect to 192.168.1.3"
+            time.sleep(10)
+            pass
 
     socketlist = setup_socket("192.168.1.4")
     s2 = socketlist[0]
+    while True:
+        try:
+            print "Connecting to 192.168.1.4"
+            connect(s2,socketlist[1])
+            break
+        except:
+            print "Could not connect to 192.168.1.4"
+            time.sleep(10)
+            pass
 
-    try:
-        connect(s2,socketlist[1])
-    except:
-        print "Could not connect to 192.168.1.4"
-        raise
+    print "Initiating connection with 192.168.1.3 and 192.168.1.4"
 
+    while True:
+        try:
+            ceweserial = send(s1,'/?!\r\n')
+            if ceweserial == "/CWI5CW011163\r":
+                print "Connection established with ",ceweserial
+                send(s1,[ACK,"051\r\n"]) #050 Data readout,#051 programming mode
+                send(s1,[SOH,"P2",STX,"(ABCDEF)",ETX]) #<SOH>P2<STX>(ABCDEF)<ETX><BCC>
+                break
+            else:
+                time.sleep(10)
+        except:
+            time.sleep(10)
+            pass
 
-    
-    send(s1,'/?!\r\n')
-    send(s1,[ACK,"051\r\n"]) #050 Data readout,#051 programming mode
-    send(s1,[SOH,"P2",STX,"(ABCDEF)",ETX]) #<SOH>P2<STX>(ABCDEF)<ETX><BCC>
+    while True:
+        try:
+            ceweserial = send(s2,'/?!\r\n')
+            if ceweserial == "/CWI5CW011162\r":
+                print "Connection established with ",ceweserial
+                send(s2,[ACK,"051\r\n"]) #050 Data readout,#051 programming mode
+                send(s2,[SOH,"P2",STX,"(ABCDEF)",ETX]) #<SOH>P2<STX>(ABCDEF)<ETX><BCC>
+                break
+            else:
+                time.sleep(10)
+        except:
+            time.sleep(10)
+            pass
 
-    send(s2,'/?!\r\n')
-    send(s2,[ACK,"051\r\n"]) #050 Data readout,#051 programming mode
-    send(s2,[SOH,"P2",STX,"(ABCDEF)",ETX]) #<SOH>P2<STX>(ABCDEF)<ETX><BCC>
 
     times = []
 
