@@ -1,0 +1,325 @@
+<!DOCTYPE html> 
+<html> 
+<head> 
+	<meta charset="utf-8"> 
+	<title>InnoVentum Giraffe 2.0 Malmö</title> 
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=0, minimum-scale=1.0, maximum-scale=1.0">
+ 
+	<script src="nyan-ani.js" type="text/javascript" charset="utf-8"></script>
+	<script src="{{ url_for('static', filename='ascii.js') }}" type="text/javascript" charset="utf-8"></script>
+	<script src="https://code.jquery.com/jquery-2.1.3.min.js"></script>
+	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/sprintf/1.0.1/sprintf.min.js"></script>
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap.min.css">
+	<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/js/bootstrap.min.js"></script>
+</head>
+<style>
+h1,h2,h3 {
+	font-size:14px;
+}
+a { color:#ffc973; }
+body {
+	margin:20px;
+	padding:0;
+	background:#000;
+	color:#eee;
+	font-size:14px;
+}
+
+.header {
+	width: 100%;
+	height: 150px;
+	background: #000;
+}
+
+#footer {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+}
+#center {
+    width: 100%;
+    margin: 0 auto;
+}
+
+</style>
+<body>
+<!--<h1>Text only Dot matrix LCD animation</h1>
+<h2><a href="http://cubiq.org/text-only-dot-matrix-lcd-animation">Related article</a></h2>-->
+<div class="row">
+  <div class="col-md-12"><div class="header"></div></div>
+</div>
+<div class="row">
+  <div class="col-md-6">
+  	<div>
+	  	<div id="displayHeader"></div>
+		<div id="display"></div>
+		<div id="display2"></div>
+		<div id="display3"></div>
+		<div id="display17"></div>
+	</div>
+  </div>
+  <div class="col-md-6">
+  	<div id="display4"></div>
+	<div id="display5"></div>
+	<div id="display6"></div>
+	<div id="display7"></div>
+  </div>
+</div>
+<br>
+<div class="row">
+  <div class="col-md-6">
+  	<div id="display8"></div>
+	<div id="display9"></div>
+	<div id="display10"></div>
+	<div id="display11"></div>
+  </div>
+  <div class="col-md-6">
+  	<div id="display12"></div>
+	<div id="display13"></div>
+	<div id="display14"></div>
+	<div id="display15"></div>
+  </div>
+</div>
+<br>
+<div id="footer">
+    <div id="center">
+        <div id="display16"></div>
+    </div>
+</div>
+</div>
+<script type="text/javascript">
+// var display = document.getElementById('display'),
+// 	i, l,
+// 	matrix,
+// 	currentFrame = 0,
+// 	aniTimer,
+// 	nextFrame = (function() {
+// 	    return window.requestAnimationFrame
+// 			|| window.webkitRequestAnimationFrame
+// 			|| window.mozRequestAnimationFrame
+// 			|| window.oRequestAnimationFrame
+// 			|| window.msRequestAnimationFrame
+// 			|| function(callback) { return setTimeout(callback, 16.667); }
+// 	})(),
+// 	cancelFrame = (function () {
+// 	    return window.cancelRequestAnimationFrame
+// 			|| window.webkitCancelRequestAnimationFrame
+// 			|| window.mozCancelRequestAnimationFrame
+// 			|| window.oCancelRequestAnimationFrame
+// 			|| window.msCancelRequestAnimationFrame
+// 			|| clearTimeout
+// 	})();
+
+function DotMatrix(elm){ //elm == element id "#display"
+	this.elm = elm;
+	this.div = function(i,n) {
+		return Math.floor(i/n);
+	};
+	this.fillMatrix = function(val,nofchars) {
+		var out = '';
+		for (var r = 0; r < 7; r++) {
+			for(ch=0;ch<nofchars;ch++){
+		        for(c=0;c<5;c++){
+		                out += '<em class="char">' + val + '</em>';
+		        }
+		        out += '<em></em>';
+		    }
+		}
+
+		$(elm).html(out);
+		this.matrix = document.querySelectorAll(this.elm+' em.char');
+	};
+	this.getArray = function(arrin){
+		arr = [];
+		for(i = 0;i < 7;i++){
+		    arr.push([]);
+		    for(j = 0;j<5;j++){
+		        arr[i][j] = (arrin[j] & (1 << i)) >> i;    
+		    }
+		}
+		return arr;
+	};
+	this.drawText = function(text){
+		var opacity, i;
+		this.fillMatrix('•',text.length);
+		$(this.elm+" em").css("display","inline-block");
+		$(this.elm+" em").css("width","3px");
+		$(this.elm).css("line-height","3px");
+		$(this.elm+" em").css("overflow","hidden");
+		$(this.elm+" em").css("opacity",".1");
+		$(this.elm+" em").css("font-style","normal");
+
+		//$(this.elm).css("background","#270e05");
+		$(this.elm).css("background","#000000");
+		//$(this.elm).css("border","4px solid #271704");
+		$(this.elm).css("border","4px solid #000000");
+		//$(this.elm).css("color","#ffc973");
+		$(this.elm).css("color","rgb(30, 254, 1)");
+		$(this.elm).css("font-size","4px");
+		//$(this.elm).css("text-shadow","0 0 3px rgba(255,201,115,1)");
+		$(this.elm).css("text-shadow","0 0 3px rgba(30,254,1,1)");
+		$(this.elm).css("font-family","monaco, consolas, monospace");
+		$(this.elm).css("box-sizing","content-box");
+		$(this.elm).css("margin","0 auto");
+		for (i=0; i<this.matrix.length; i++) {
+			var ch = this.getArray(chars[text[Math.floor(i/5)%(text.length)]]);
+			
+			opacity = (0.1+ch[this.div(i,5*text.length)][i%5]);
+			if(opacity != this.matrix[i].style.opacity)
+					this.matrix[i].style.opacity = opacity;
+		}
+		$(this.elm).css("width",(text.length*3*6).toString()+"px");
+		//document.getElementById(this.elm).style.width = (text.length*3*6).toString()+"px";
+	};
+}
+
+// Draw the pseudo-LCD matrix
+
+
+function animate () {
+
+	dispHeader1 = new DotMatrix("#displayHeader")
+	disp1 = new DotMatrix("#display");
+	disp2 = new DotMatrix("#display2");
+	disp3 = new DotMatrix("#display3");
+	
+	disp4 = new DotMatrix("#display4");
+	disp5 = new DotMatrix("#display5");
+	disp6 = new DotMatrix("#display6");
+	disp7 = new DotMatrix("#display7");
+
+	disp8 = new DotMatrix("#display8");
+	disp9 = new DotMatrix("#display9");
+	disp10 = new DotMatrix("#display10");
+	disp11 = new DotMatrix("#display11");
+
+	disp12 = new DotMatrix("#display12");
+	disp13 = new DotMatrix("#display13");
+	disp14 = new DotMatrix("#display14");
+	disp15 = new DotMatrix("#display15");
+
+	disp16 = new DotMatrix("#display16");
+
+	disp17 = new DotMatrix("#display17");
+	// $("#inputText").on("input",function(){
+	// 	drawThis($( this ).val());
+	// });
+
+	function update(){
+		$.ajax({
+			url: "http://94.234.166.118:3000/data",
+			success: function(data,jhqr,error){
+				// console.log(data.anemo1.speed);
+				// var strval = sprintf("%.2f", data.anemo1.speed)
+				// drawThis("Wind: "+strval+" m/s");
+
+				console.log(data.anemo1.temph);
+				var strval = 
+				dispHeader1.drawText("Main anemometer:    ");
+				disp1.drawText("Temp:      "+sprintf("%.2f", data.anemo1.temph)+" °C ");
+				disp2.drawText("Speed:      "+sprintf("%.2f", data.anemo1.speed)+" m/s");
+				disp3.drawText("Volt:       "+sprintf("%.2f",data.anemo1.voltage)+" V  ");
+				disp17.drawText("Pr:      "+sprintf("%.2f",data.anemo1.pressure)+" hPa");
+
+				disp4.drawText("2:nd anemometer:    ");
+				disp5.drawText("Temp:      "+sprintf("%.2f", data.anemo2.temph)+" °C ");
+				disp6.drawText("Speed:      "+sprintf("%.2f", data.anemo2.speed)+" m/s");
+				disp7.drawText("Volt:       "+sprintf("%.2f",data.anemo2.voltage)+" V  ");
+
+				disp8.drawText("Solar power:        ");
+				disp9.drawText("Power:      "+sprintf("%.2f", data.solar.tot_act_power)+" W  ");
+				disp10.drawText("Imp:     "+sprintf("%.2f", data.solar.act_ener_imp/1000.0)+" kWh");
+				disp11.drawText("Freq:       "+sprintf("%.2f", data.solar.frequency)+" Hz ");
+
+				disp12.drawText("Wind power:         ");
+				disp13.drawText("Power:      "+sprintf("%.2f", data.wind.tot_act_power)+" W  ");
+				disp14.drawText("Imp:     "+sprintf("%.2f", data.wind.act_ener_imp/1000.0)+" kWh");
+				disp15.drawText("Freq:       "+sprintf("%.2f", data.wind.frequency)+" Hz ");
+
+				disp16.drawText(new Date(data.timestamp).toString());
+				console.log(data.timestamp);
+			}
+		});
+	}
+
+	update();
+	setInterval(update,1000)
+	
+
+	
+
+	// for (var k = 0; k < text.length; k++) {
+	// 	// find object
+	// 	var ch = window[text[k]];
+	// 	console.log(ch);
+	// 	// is object a function?
+	// 	//if (typeof fn === "function") fn();
+	// 	for (i=k*35; i<((k+1)*35); i++) {
+	// 		console.log(i,Math.floor(i/5)%7,[i % 5]);
+	// 		opacity = (1 + 5*ch[Math.floor(i/5)%7][i % 5]) / 10;
+	// 		if(opacity != matrix[i].style.opacity)
+	// 			matrix[k*35+i].style.opacity = opacity;
+	// 	}
+	// };
+	
+	//currentFrame++;
+	//if (currentFrame == nyanAni.length) currentFrame = 0;
+	
+	//aniTimer = nextFrame(animate);
+
+	// function fillMatrix (val,nofchars) {
+// 	var out = '';
+// 	//for (i=0, l=nyanAni[0].length; i<l; i++) {
+// 	//	out += '<em>' + val + '</em>';
+// 	//}
+// 	for (var r = 0; r < 7; r++) {
+// 		for(ch=0;ch<nofchars;ch++){
+// 	        for(c=0;c<5;c++){
+// 	            //for(r=0;r<7;r++){
+// 	                out += '<em class="char">' + val + '</em>';
+// 	            //}
+// 	        }
+// 	        out += '<em></em>';
+// 	    }
+// 	    //out += '<br>';	
+// 	};
+
+// 	display.innerHTML = out;
+// 	matrix = document.querySelectorAll('#display em.char');
+// }
+
+// function div (i,n) {
+// 	return Math.floor(i/n);
+// }
+
+// function getArray(arrin){
+// 	arr = [];
+// 	for(i = 0;i < 7;i++){
+// 	    arr.push([]);
+// 	    for(j = 0;j<5;j++){
+// 	        arr[i][j] = (arrin[j] & (1 << i)) >> i;    
+// 	    }
+// 	}
+// 	return arr;
+// }
+
+// function drawThis(text){
+// 	var opacity, i;
+// 	fillMatrix('•',text.length);
+// 	for (i=0; i<matrix.length; i++) {
+// 		var ch = getArray(chars[text[Math.floor(i/5)%(text.length)]]);
+		
+// 		opacity = (1 + 5*ch[div(i,5*text.length)][i%5]) / 10;
+// 		if(opacity != matrix[i].style.opacity)
+// 				matrix[i].style.opacity = opacity;
+// 	}
+// 	document.getElementById("display").style.width = (text.length*3*6).toString()+"px";
+// }
+}
+
+window.addEventListener('load', animate, false);
+</script>
+</body>
+</html>
+
+

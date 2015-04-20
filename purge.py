@@ -78,9 +78,6 @@ def main():
     #Check the newest document in remote database
     result_remote = dbremote.view("_design/time/_view/last",include_docs=False,limit=1,descending=True)
 
-    #start_key = int(time.time()*1000)-1800*1000
-    #start_key = int(time.time()*1000)-1*60*1000 
-
     for row in result_remote:
         start_key = row["key"]
 
@@ -89,7 +86,7 @@ def main():
     result = db.view("_design/time/_view/last", startkey=start_key, descending=True)
 
 
-    print "Documents to purge: ",len(result)
+    print "Documents to delete: ",len(result)
     arr_delete = []
     for row in result:
         arr_delete.append({'_id':row.id,'_rev':row.value})

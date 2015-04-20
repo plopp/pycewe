@@ -27,9 +27,14 @@ LF = "\x0A"
 BCC = "\xFF"
 
 def sampleToFile(doc):
-    f = open('/mnt/ramdisk/out.json','w+')
-    f.write(doc)
-    f.close()
+    while True:
+        try:
+            f = open('/mnt/ramdisk/out.json','w+')
+            f.write(doc)
+            f.close()
+            break
+        except IOError:
+            time.sleep(0.01)
 
 
 PASSWORD = "(ABCDEF)"
@@ -302,8 +307,9 @@ def read_data(q,reply_q):
     #print "Running read_data"
     s = q.get()   
     # Send data
+    t0 = time.time()
     name = s.getpeername()[0]
-    #print "Sorting data",name
+    print "Ethernet: ",name
     try:
         timeans = send(s,[SOH,"R1",STX,"100C00(1)",ETX])
         metertime =  ans_to_list_str(timeans)
@@ -464,7 +470,8 @@ def read_data(q,reply_q):
         elif s.getpeername()[0] == "192.168.1.4":
             reply_q.put(["wind",data])        
         #print "Power meter error"
-    #print "Meter task done.",name
+    t1 = time.time()
+    print "Ethernet: Done (",name,") ",(t1-t0)
     q.task_done()
 
 def s16_to_int(s16):
@@ -477,8 +484,9 @@ def s16_to_int(s16):
 def read_modbus(q,reply_q):
     qaddr = q.get()
     data = {}
+    t0 = time.time()
     for addr in qaddr:
-        #print "ADDR: ",addr
+        print "Modbus: ",addr
         if addr==1:
             try:
                 ans = Pyro.read_input_registers(0, 56, unit=int(addr))
@@ -493,7 +501,7 @@ def read_modbus(q,reply_q):
                 data["error"] = False
                 reply_q.put([''.join(["anemo",str(addr)]),data])
                 data = {}
-            except AttributeError:
+            except (AttributeError,OSError):
                 print "Attribute error!"
                 data["dir"]=0
                 data["speed"]=0
@@ -520,7 +528,7 @@ def read_modbus(q,reply_q):
                 data["error"] = False
                 reply_q.put([''.join(["anemo",str(addr)]),data])
                 data = {}
-            except AttributeError:
+            except (AttributeError,OSError):
                 print "Attribute error!"
                 data["dir"]=0
                 data["speed"]=0
@@ -547,7 +555,7 @@ def read_modbus(q,reply_q):
                 data["error"] = False
                 reply_q.put(["pyro",data])
                 data = {}
-            except AttributeError:
+            except (AttributeError,OSError):
                 data["status"] = 0
                 data["radiance"] = 0
                 data["raw_radiance"] = 0
@@ -559,6 +567,8 @@ def read_modbus(q,reply_q):
                 print "Pyranometer data AttributeError. Error in reading Pyranometer, incomplete data."
                 pass
             finally:
+                t1 = time.time()
+                print "Modbus: Done. ",(t1-t0)
                 q.task_done()
 
 def read_modbus_pyro(q,reply_q):
@@ -747,9 +757,12 @@ def main():
                 "timestamp":int(time.time()*1000)
             }
 
-            #print data
+            print "Writing to file..."
             sampleToFile(json.dumps(data))
+            print "File done. Now storing in ram."
+            #print data
             send_q.put(data)
+            print "Done."
             t1 = time.time()
             total = t1-t0
             #if (1-total)>0.05:
