@@ -8,7 +8,7 @@ app = Flask(__name__)
 
 cors = CORS(app, resources={r"/data*": {"origins": "*"}})
 
-@app.route('/data')
+@app.route('/jsondata')
 def data():
     while True:
         try:
