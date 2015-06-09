@@ -303,7 +303,12 @@ def send_to_db(doc, creds):
     request.get_method = lambda: 'POST'
     urllib2.urlopen(request, timeout=1)    
 
+i1 = 599
+i2 = 599
+data1_1 = None #192.168.1.3
+data1_2 = None #192.168.1.4
 def read_data(q,reply_q):
+    global data1_1,data1_2,i1,i2
     #print "Running read_data"
     s = q.get()   
     # Send data
@@ -313,8 +318,23 @@ def read_data(q,reply_q):
     try:
         timeans = send(s,[SOH,"R1",STX,"100C00(1)",ETX])
         metertime =  ans_to_list_str(timeans)
-        data1ans = send(s,[SOH,"R1",STX,"100800(1)",ETX])
-        data1 =  ans_to_list(data1ans)
+        if name == "192.168.1.3":
+            i1 = i1 + 1
+        if name == "192.168.1.4":
+            i2 = i2 + 1
+        if i1 > 599 and name == "192.168.1.3":
+            data1ans = send(s,[SOH,"R1",STX,"100800(1)",ETX])
+            data1_1 =  ans_to_list(data1ans)
+            i1 = 0
+        if i2 > 599 and name == "192.168.1.4":
+            data1ans = send(s,[SOH,"R1",STX,"100800(1)",ETX])
+            data1_2 =  ans_to_list(data1ans)
+            i2 = 0
+        data1 = None
+        if name == "192.168.1.3":
+            data1 = data1_1
+        elif name == "192.168.1.4":
+            data1 = data1_2
         data2ans = send(s,[SOH,"R1",STX,"015200(1)",ETX])
         data2 = ans_to_list(data2ans)
         temp = send(s,[SOH,"R1",STX,"100700(1)",ETX])
@@ -390,9 +410,9 @@ def read_data(q,reply_q):
             "temperature":tempdata[0], #C
             "error":False
         }
-        if s.getpeername()[0] == "192.168.1.3":
+        if name == "192.168.1.3":
             reply_q.put(["solar",data])
-        elif s.getpeername()[0] == "192.168.1.4":
+        elif name == "192.168.1.4":
             reply_q.put(["wind",data])
         #print "Putting reply",name
     except:
@@ -465,9 +485,9 @@ def read_data(q,reply_q):
             "temperature":0, #C
             "error":True
         }
-        if s.getpeername()[0] == "192.168.1.3":
+        if name == "192.168.1.3":
             reply_q.put(["solar",data])
-        elif s.getpeername()[0] == "192.168.1.4":
+        elif name == "192.168.1.4":
             reply_q.put(["wind",data])        
         #print "Power meter error"
     t1 = time.time()
