@@ -590,6 +590,23 @@ def read_modbus(q,reply_q):
                 t1 = time.time()
                 print "Modbus: Done. ",(t1-t0)
                 q.task_done()
+        elif addr==4:
+            try:
+                ans = Pyro.read_input_registers(0, 2, unit=int(addr))
+                data["dir"]=ans.registers[6]/100.0
+                data["speed"]=ans.registers[5]/100.0
+                data["error"] = False
+                reply_q.put([''.join(["anemo",str(addr)]),data])
+                data = {}
+            except (AttributeError,OSError):
+                print "Attribute error!"
+                data["dir"]=0
+                data["speed"]=0
+                data["error"] = True
+                reply_q.put([''.join(["anemo",str(addr)]),data])
+                data = {}
+                print "Error reading anemometer ",addr
+                pass
 
 def read_modbus_pyro(q,reply_q):
     reg = q.get()
@@ -766,6 +783,8 @@ def main():
                     anemo1 = post[1]
                 elif post[0] == "anemo2":
                     anemo2 = post[1]
+                elif post[0] == "anemo4":
+                    anemo4 = post[1]
                 
 
             data = {
@@ -774,6 +793,7 @@ def main():
                 "pyro":pyro,
                 "anemo1":anemo1,
                 "anemo2":anemo2,
+                #"anemo4":anemo4,
                 "timestamp":int(time.time()*1000)
             }
 
