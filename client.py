@@ -500,6 +500,15 @@ def s16_to_int(s16):
     else:
         return s16
 
+def setRelay(relaynum,value):
+    if relaynum<1 or relaynum > 2:
+        print "Relay number must be 1 or 2."
+        return
+    ans = Pyro.write_coil(1+relaynum,value,unit=4)
+
+def getRelay(relaynum):
+    ans = Pyro.read_coils(1+relaynum,8,unit=4)
+    return ans.bits[relaynum-1]
 
 def read_modbus(q,reply_q):
     qaddr = q.get()
@@ -522,7 +531,6 @@ def read_modbus(q,reply_q):
                 reply_q.put([''.join(["anemo",str(addr)]),data])
                 data = {}
             except (AttributeError,OSError):
-                print "Attribute error!"
                 data["dir"]=0
                 data["speed"]=0
                 data["temph"]=0
@@ -549,7 +557,6 @@ def read_modbus(q,reply_q):
                 reply_q.put([''.join(["anemo",str(addr)]),data])
                 data = {}
             except (AttributeError,OSError):
-                print "Attribute error!"
                 data["dir"]=0
                 data["speed"]=0
                 data["temph"]=0
@@ -598,8 +605,13 @@ def read_modbus(q,reply_q):
                 data["error"] = False
                 reply_q.put([''.join(["anemo",str(addr)]),data])
                 data = {}
+                if getRelay(1) == 0: #Activate relay on startup
+                    setRelay(1,1)
+                if int(time.time()%86400) < 2 and int(time.time()%86400) > 0: #Turn relay off once each midnight to restart anemometer
+                    setRelay(1,0)
+                    time.sleep(1)
+                    setRelay(1,1)
             except (AttributeError,OSError):
-                print "Attribute error!"
                 data["dir"]=0
                 data["speed"]=0
                 data["error"] = True
