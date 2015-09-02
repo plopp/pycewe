@@ -593,10 +593,6 @@ def read_modbus(q,reply_q):
                 data = {}
                 print "Pyranometer data AttributeError. Error in reading Pyranometer, incomplete data."
                 pass
-            finally:
-                t1 = time.time()
-                print "Modbus: Done. ",(t1-t0)
-                q.task_done()
         elif addr==4:
             try:
                 ans = Pyro.read_input_registers(0, 2, unit=int(addr))
@@ -619,6 +615,10 @@ def read_modbus(q,reply_q):
                 data = {}
                 print "Error reading anemometer ",addr
                 pass
+            finally:
+                t1 = time.time()
+                print "Modbus: Done. ",(t1-t0)
+                q.task_done()
 
 def read_modbus_pyro(q,reply_q):
     reg = q.get()
@@ -759,7 +759,7 @@ def main():
 
             addr_q.put(s1)
             addr_q.put(s2)
-            modbus_addr_q.put([1,2,3])
+            modbus_addr_q.put([1,2,3,4])
 
             thread1.start()
             thread2.start()
