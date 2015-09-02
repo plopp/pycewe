@@ -518,7 +518,7 @@ def read_modbus(q,reply_q):
         print "Modbus: ",addr
         if addr==1:
             try:
-                ans = Pyro.read_input_registers(0, 56, unit=int(addr))
+                ans = Pyro.read_input_registers(0, 16, unit=int(addr))
                 data["dir"]=ans.registers[6]/100.0
                 data["speed"]=ans.registers[5]/100.0
                 data["temph"]=ans.registers[0]/100.0
@@ -546,7 +546,7 @@ def read_modbus(q,reply_q):
                 pass
         elif addr==2:
             try:
-                ans = Pyro.read_input_registers(0, 56, unit=int(addr))
+                ans = Pyro.read_input_registers(0, 16, unit=int(addr))
                 data["dir"]=ans.registers[6]/100.0
                 data["speed"]=ans.registers[5]/100.0
                 data["temph"]=ans.registers[0]/100.0
