@@ -805,7 +805,7 @@ def main():
                     "pyro":pyro,
                     "anemo1":anemo1,
                     "anemo2":anemo2,
-                    #"anemo4":anemo4,
+                    "anemo4":anemo4,
                     "timestamp":int(time.time()*1000)
                 }
 
