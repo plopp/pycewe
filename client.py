@@ -798,30 +798,32 @@ def main():
                 elif post[0] == "anemo4":
                     anemo4 = post[1]
                 
+            try:
+                data = {
+                    "wind":wind,
+                    "solar":solar,
+                    "pyro":pyro,
+                    "anemo1":anemo1,
+                    "anemo2":anemo2,
+                    #"anemo4":anemo4,
+                    "timestamp":int(time.time()*1000)
+                }
 
-            data = {
-                "wind":wind,
-                "solar":solar,
-                "pyro":pyro,
-                "anemo1":anemo1,
-                "anemo2":anemo2,
-                #"anemo4":anemo4,
-                "timestamp":int(time.time()*1000)
-            }
-
-            print "Writing to file..."
-            sampleToFile(json.dumps(data))
-            print "File done. Now storing in ram."
-            #print data
-            send_q.put(data)
-            print "Done."
-            t1 = time.time()
-            total = t1-t0
-            #if (1-total)>0.05:
-            #    time.sleep(1-total)
-            now = time.time()
-            #times.append(now-t0)
-            print ".",total,' ',now
+                print "Writing to file..."
+                sampleToFile(json.dumps(data))
+                print "File done. Now storing in ram."
+                #print data
+                send_q.put(data)
+                print "Done."
+                t1 = time.time()
+                total = t1-t0
+                #if (1-total)>0.05:
+                #    time.sleep(1-total)
+                now = time.time()
+                #times.append(now-t0)
+                print ".",total,' ',now
+            except UnboundLocalError:
+                pass
             #send_to_db2(data)
             #send('END') 
     finally:
