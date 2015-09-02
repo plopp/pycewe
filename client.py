@@ -598,6 +598,7 @@ def read_modbus(q,reply_q):
                 ans = Pyro.read_input_registers(0, 2, unit=int(addr))
                 data["dir"]=ans.registers[1]/1.0
                 data["speed"]=ans.registers[0]/10.0
+                print "DIR SPEED",data["dir"],data["speed"]
                 data["error"] = False
                 reply_q.put([''.join(["anemo",str(addr)]),data])
                 data = {}
