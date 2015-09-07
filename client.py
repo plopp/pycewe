@@ -43,7 +43,7 @@ couchlocal = None
 dblocal = None
 s = None
 
-timeoutModbus = 0.1
+timeoutModbus = 0.18
 portName = '/dev/ttyUSB0'
 Pyro = Modbus(method='rtu', port=portName, baudrate=38400, timeout=timeoutModbus, stopbits = 1, parity = 'E')
 
@@ -759,7 +759,7 @@ def main():
 
             addr_q.put(s1)
             addr_q.put(s2)
-            modbus_addr_q.put([1,2,3,4])
+            modbus_addr_q.put([1,3,4])
 
             thread1.start()
             thread2.start()
@@ -793,8 +793,8 @@ def main():
                     pyro = post[1]
                 elif post[0] == "anemo1":
                     anemo1 = post[1]
-                elif post[0] == "anemo2":
-                    anemo2 = post[1]
+                #elif post[0] == "anemo2":
+                    #anemo2 = post[1]
                 elif post[0] == "anemo4":
                     anemo4 = post[1]
                 
@@ -804,7 +804,7 @@ def main():
                     "solar":solar,
                     "pyro":pyro,
                     "anemo1":anemo1,
-                    "anemo2":anemo2,
+                    #"anemo2":anemo2,
                     "anemo4":anemo4,
                     "timestamp":int(time.time()*1000)
                 }
