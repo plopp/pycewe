@@ -284,13 +284,13 @@ def unix_time_millis(dt):
 def send_to_db2(q,credentials):
     size = q.qsize()
     if size>599:
-        print "Queue size is ",size," sending"
+        #print "Queue size is ",size," sending"
         doc_arr = []
         for i in range(0,size):
             doc = q.get()
             doc_arr.append(doc)
         dblocal.update(doc_arr)
-        print ("%(db)s" % credentials),"-->",("%(protocol)s://%(user)s:%(passw)s@%(domain)s/%(db)s" % credentials)
+        #print ("%(db)s" % credentials),"-->",("%(protocol)s://%(user)s:%(passw)s@%(domain)s/%(db)s" % credentials)
         couchlocal.replicate("%(db)s" % credentials,"%(protocol)s://%(user)s:%(passw)s@%(domain)s/%(db)s" % credentials)
         q.task_done()
 
@@ -314,7 +314,7 @@ def read_data(q,reply_q):
     # Send data
     t0 = time.time()
     name = s.getpeername()[0]
-    print "Ethernet: ",name
+    #print "Ethernet: ",name
     try:
         timeans = send(s,[SOH,"R1",STX,"100C00(1)",ETX])
         metertime =  ans_to_list_str(timeans)
@@ -491,7 +491,7 @@ def read_data(q,reply_q):
             reply_q.put(["wind",data])        
         #print "Power meter error"
     t1 = time.time()
-    print "Ethernet: Done (",name,") ",(t1-t0)
+    #print "Ethernet: Done (",name,") ",(t1-t0)
     q.task_done()
 
 def s16_to_int(s16):
@@ -515,7 +515,7 @@ def read_modbus(q,reply_q):
     data = {}
     t0 = time.time()
     for addr in qaddr:
-        print "Modbus: ",addr
+        #print "Modbus: ",addr
         if addr==1:
             try:
                 ans = Pyro.read_input_registers(0, 16, unit=int(addr))
@@ -617,7 +617,7 @@ def read_modbus(q,reply_q):
                 pass
             finally:
                 t1 = time.time()
-                print "Modbus: Done. ",(t1-t0)
+                #print "Modbus: Done. ",(t1-t0)
                 q.task_done()
 
 def read_modbus_pyro(q,reply_q):
@@ -809,19 +809,19 @@ def main():
                     "timestamp":int(time.time()*1000)
                 }
 
-                print "Writing to file..."
+                #print "Writing to file..."
                 sampleToFile(json.dumps(data))
-                print "File done. Now storing in ram."
+                #print "File done. Now storing in ram."
                 #print data
                 send_q.put(data)
-                print "Done."
+                #print "Done."
                 t1 = time.time()
                 total = t1-t0
                 #if (1-total)>0.05:
                 #    time.sleep(1-total)
                 now = time.time()
                 #times.append(now-t0)
-                print ".",total,' ',now
+                #print ".",total,' ',now
             except UnboundLocalError:
                 pass
             #send_to_db2(data)
