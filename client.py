@@ -530,7 +530,7 @@ def read_modbus(q,reply_q):
                 data["error"] = False
                 reply_q.put([''.join(["anemo",str(addr)]),data])
                 data = {}
-            except (AttributeError,OSError):
+            except (AttributeError,OSError,IndexError):
                 data["dir"]=0
                 data["speed"]=0
                 data["temph"]=0
@@ -556,7 +556,7 @@ def read_modbus(q,reply_q):
                 data["error"] = False
                 reply_q.put([''.join(["anemo",str(addr)]),data])
                 data = {}
-            except (AttributeError,OSError):
+            except (AttributeError,OSError,IndexError):
                 data["dir"]=0
                 data["speed"]=0
                 data["temph"]=0
@@ -582,7 +582,7 @@ def read_modbus(q,reply_q):
                 data["error"] = False
                 reply_q.put(["pyro",data])
                 data = {}
-            except (AttributeError,OSError):
+            except (AttributeError,OSError,IndexError):
                 data["status"] = 0
                 data["radiance"] = 0
                 data["raw_radiance"] = 0
@@ -607,7 +607,7 @@ def read_modbus(q,reply_q):
                     setRelay(1,0)
                     time.sleep(1)
                     setRelay(1,1)
-            except (AttributeError,OSError):
+            except (AttributeError,OSError,IndexError):
                 data["dir"]=0
                 data["speed"]=0
                 data["error"] = True
