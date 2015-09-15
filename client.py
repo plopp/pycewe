@@ -530,7 +530,7 @@ def read_modbus(q,reply_q):
                 data["error"] = False
                 reply_q.put([''.join(["anemo",str(addr)]),data])
                 data = {}
-            except (AttributeError,OSError,IndexError):
+            except (AttributeError,OSError,IndexError) as e:
                 data["dir"]=0
                 data["speed"]=0
                 data["temph"]=0
@@ -542,7 +542,7 @@ def read_modbus(q,reply_q):
                 data["error"] = True
                 reply_q.put([''.join(["anemo",str(addr)]),data])
                 data = {}
-                print "Error reading anemometer ",addr
+                print time.time(),"Error reading anemometer ",addr,e
                 pass
         elif addr==2:
             try:
@@ -556,7 +556,7 @@ def read_modbus(q,reply_q):
                 data["error"] = False
                 reply_q.put([''.join(["anemo",str(addr)]),data])
                 data = {}
-            except (AttributeError,OSError,IndexError):
+            except (AttributeError,OSError,IndexError) as e:
                 data["dir"]=0
                 data["speed"]=0
                 data["temph"]=0
@@ -566,7 +566,7 @@ def read_modbus(q,reply_q):
                 data["error"] = True
                 reply_q.put([''.join(["anemo",str(addr)]),data])
                 data = {}
-                print "Error reading anemometer ",addr
+                print time.time(),"Error reading anemometer ",addr,e
                 pass
         elif addr==3:
             try:    
@@ -582,7 +582,7 @@ def read_modbus(q,reply_q):
                 data["error"] = False
                 reply_q.put(["pyro",data])
                 data = {}
-            except (AttributeError,OSError,IndexError):
+            except (AttributeError,OSError,IndexError) as e:
                 data["status"] = 0
                 data["radiance"] = 0
                 data["raw_radiance"] = 0
@@ -591,7 +591,7 @@ def read_modbus(q,reply_q):
                 data["error"] = True
                 reply_q.put(["pyro",data])
                 data = {}
-                print "Pyranometer data AttributeError. Error in reading Pyranometer, incomplete data."
+                print time.time(),"Pyranometer data AttributeError.",e
                 pass
         elif addr==4:
             try:
@@ -601,19 +601,19 @@ def read_modbus(q,reply_q):
                 data["error"] = False
                 reply_q.put([''.join(["anemo",str(addr)]),data])
                 data = {}
-                if getRelay(1) == 0: #Activate relay on startup
-                    setRelay(1,1)
-                if int(time.time()%86400) < 2 and int(time.time()%86400) > 0: #Turn relay off once each midnight to restart anemometer
-                    setRelay(1,0)
-                    time.sleep(1)
-                    setRelay(1,1)
-            except (AttributeError,OSError,IndexError):
+                #if getRelay(1) == 0: #Activate relay on startup
+                #    setRelay(1,1)
+                #if int(time.time()%86400) < 2 and int(time.time()%86400) > 0: #Turn relay off once each midnight to restart anemometer
+                #    setRelay(1,0)
+                #    time.sleep(1)
+                #    setRelay(1,1)
+            except (AttributeError,OSError,IndexError) as e:
                 data["dir"]=0
                 data["speed"]=0
                 data["error"] = True
                 reply_q.put([''.join(["anemo",str(addr)]),data])
                 data = {}
-                print "Error reading anemometer ",addr
+                print time.time(),"Error reading anemometer ",addr,e
                 pass
             finally:
                 t1 = time.time()
