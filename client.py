@@ -504,11 +504,10 @@ def setRelay(relaynum,value):
     if relaynum<1 or relaynum > 2:
         print "Relay number must be 1 or 2."
         return
-    ans = Pyro.write_coil(1+relaynum,value,unit=4)
+    Pyro.write_coil(1+relaynum,value,unit=4)
 
 def getRelay(relaynum):
-    ans = Pyro.read_coils(1+relaynum,8,unit=4)
-    return ans.bits[relaynum-1]
+    return Pyro.read_coils(1+relaynum,8,unit=4).bits[relaynum-1]
 
 def read_modbus(q,reply_q):
     qaddr = q.get()
@@ -518,15 +517,15 @@ def read_modbus(q,reply_q):
         #print "Modbus: ",addr
         if addr==1:
             try:
-                ans = Pyro.read_input_registers(0, 16, unit=int(addr))
-                data["dir"]=ans.registers[6]/100.0
-                data["speed"]=ans.registers[5]/100.0
-                data["temph"]=ans.registers[0]/100.0
-                data["tempp"]=ans.registers[1]/100.0
-                data["pressure"]=((ans.registers[3] << 16) + ans.registers[2])/100.0
-                data["hum"]=(ans.registers[4])/100.0
-                data["voltage"]=ans.registers[12]/100.0
-                data["status"]=ans.registers[13]
+                ans1 = Pyro.read_input_registers(0, 16, unit=int(addr))
+                data["dir"]=ans1.registers[6]/100.0
+                data["speed"]=ans1.registers[5]/100.0
+                data["temph"]=ans1.registers[0]/100.0
+                data["tempp"]=ans1.registers[1]/100.0
+                data["pressure"]=((ans1.registers[3] << 16) + ans1.registers[2])/100.0
+                data["hum"]=(ans1.registers[4])/100.0
+                data["voltage"]=ans1.registers[12]/100.0
+                data["status"]=ans1.registers[13]
                 data["error"] = False
                 reply_q.put([''.join(["anemo",str(addr)]),data])
                 data = {}
@@ -546,13 +545,13 @@ def read_modbus(q,reply_q):
                 pass
         elif addr==2:
             try:
-                ans = Pyro.read_input_registers(0, 16, unit=int(addr))
-                data["dir"]=ans.registers[6]/100.0
-                data["speed"]=ans.registers[5]/100.0
-                data["temph"]=ans.registers[0]/100.0
-                data["hum"]=(ans.registers[4])/100.0
-                data["voltage"]=ans.registers[12]/100.0
-                data["status"]=ans.registers[13]
+                ans2 = Pyro.read_input_registers(0, 16, unit=int(addr))
+                data["dir"]=ans2.registers[6]/100.0
+                data["speed"]=ans2.registers[5]/100.0
+                data["temph"]=ans2.registers[0]/100.0
+                data["hum"]=(ans2.registers[4])/100.0
+                data["voltage"]=ans2.registers[12]/100.0
+                data["status"]=ans2.registers[13]
                 data["error"] = False
                 reply_q.put([''.join(["anemo",str(addr)]),data])
                 data = {}
@@ -570,15 +569,14 @@ def read_modbus(q,reply_q):
                 pass
         elif addr==3:
             try:    
-                ans = Pyro.read_input_registers(0, 10, unit=int(addr))
-                data["status"] = ans.registers[3]
-                if ans.registers[0] == 8:
-                    ans2 = Pyro.read_input_registers(26,1,unit=3)
-                    data["error_code"] = ans2.registers[0]
-                data["radiance"] = s16_to_int(ans.registers[5])/1.0
-                data["raw_radiance"] = s16_to_int(ans.registers[6])
-                data["temp"] = s16_to_int(ans.registers[8])/10.0
-                data["ext_voltage"] = s16_to_int(ans.registers[9])/10.0
+                ans3 = Pyro.read_input_registers(0, 10, unit=int(addr))
+                data["status"] = ans3.registers[3]
+                if ans3.registers[0] == 8:
+                    data["error_code"] = Pyro.read_input_registers(26,1,unit=3).registers[0]
+                data["radiance"] = s16_to_int(ans3.registers[5])/1.0
+                data["raw_radiance"] = s16_to_int(ans3.registers[6])
+                data["temp"] = s16_to_int(ans3.registers[8])/10.0
+                data["ext_voltage"] = s16_to_int(ans3.registers[9])/10.0
                 data["error"] = False
                 reply_q.put(["pyro",data])
                 data = {}
@@ -595,18 +593,18 @@ def read_modbus(q,reply_q):
                 pass
         elif addr==4:
             try:
-                ans = Pyro.read_holding_registers(0, 2, unit=int(addr))
-                data["dir"]=ans.registers[1]/1.0
-                data["speed"]=ans.registers[0]/10.0
+                ans4 = Pyro.read_holding_registers(0, 2, unit=int(addr))
+                data["dir"]=ans4.registers[1]/1.0
+                data["speed"]=ans4.registers[0]/10.0
                 data["error"] = False
                 reply_q.put([''.join(["anemo",str(addr)]),data])
                 data = {}
-                #if getRelay(1) == 0: #Activate relay on startup
-                #    setRelay(1,1)
-                #if int(time.time()%86400) < 2 and int(time.time()%86400) > 0: #Turn relay off once each midnight to restart anemometer
-                #    setRelay(1,0)
-                #    time.sleep(1)
-                #    setRelay(1,1)
+                if getRelay(1) == 0: #Activate relay on startup
+                    setRelay(1,1)
+                if int(time.time()%86400) < 2 and int(time.time()%86400) > 0: #Turn relay off once each midnight to restart anemometer
+                    setRelay(1,0)
+                    time.sleep(1)
+                    setRelay(1,1)
             except (AttributeError,OSError,IndexError) as e:
                 data["dir"]=0
                 data["speed"]=0
