@@ -503,10 +503,15 @@ def s16_to_int(s16):
 def setRelay(relaynum,value):
     if relaynum<1 or relaynum > 2:
         print "Relay number must be 1 or 2."
+        Pyro.connect()
         return Pyro.write_coil(1+relaynum,value,unit=4)
+        Pyro.close()
 
 def getRelay(relaynum):
-    return Pyro.read_coils(1+relaynum,8,unit=4).bits[relaynum-1]
+    Pyro.connect()
+    ans6 = Pyro.read_coils(1+relaynum,8,unit=4)
+    Pyro.close()
+    return ans6.bits[relaynum-1]
 
 def read_modbus(q,reply_q):
     qaddr = q.get()
@@ -516,7 +521,9 @@ def read_modbus(q,reply_q):
         #print "Modbus: ",addr
         if addr==1:
             try:
+                Pyro.connect()
                 ans1 = Pyro.read_input_registers(0, 16, unit=int(addr))
+                Pyro.close()
                 data["dir"]=ans1.registers[6]/100.0
                 data["speed"]=ans1.registers[5]/100.0
                 data["temph"]=ans1.registers[0]/100.0
@@ -544,6 +551,7 @@ def read_modbus(q,reply_q):
                 pass
         elif addr==2:
             try:
+                Pyro.connect()
                 ans2 = Pyro.read_input_registers(0, 16, unit=int(addr))
                 data["dir"]=ans2.registers[6]/100.0
                 data["speed"]=ans2.registers[5]/100.0
@@ -568,6 +576,7 @@ def read_modbus(q,reply_q):
                 pass
         elif addr==3:
             try:    
+                Pyro.connect()
                 ans3 = Pyro.read_input_registers(0, 10, unit=int(addr))
                 data["status"] = ans3.registers[3]
                 if ans3.registers[0] == 8:
@@ -596,7 +605,9 @@ def read_modbus(q,reply_q):
                     print time.time()," Relay is off, setting it to on."
                     setRelay(1,1)
                     time.sleep(1)
+                Pyro.connect()
                 ans4 = Pyro.read_holding_registers(0, 2, unit=int(addr))
+                Pyro.close()
                 data["dir"]=ans4.registers[1]/1.0
                 data["speed"]=ans4.registers[0]/10.0
                 data["error"] = False
