@@ -503,8 +503,7 @@ def s16_to_int(s16):
 def setRelay(relaynum,value):
     if relaynum<1 or relaynum > 2:
         print "Relay number must be 1 or 2."
-        return
-    Pyro.write_coil(1+relaynum,value,unit=4)
+        return Pyro.write_coil(1+relaynum,value,unit=4)
 
 def getRelay(relaynum):
     return Pyro.read_coils(1+relaynum,8,unit=4).bits[relaynum-1]
@@ -593,18 +592,48 @@ def read_modbus(q,reply_q):
                 pass
         elif addr==4:
             try:
+                if getRelay(1) == 0: #Activate relay on startup
+                    print time.time()," Relay is off, setting it to on."
+                    setRelay(1,1)
+                    time.sleep(1)
                 ans4 = Pyro.read_holding_registers(0, 2, unit=int(addr))
                 data["dir"]=ans4.registers[1]/1.0
                 data["speed"]=ans4.registers[0]/10.0
                 data["error"] = False
                 reply_q.put([''.join(["anemo",str(addr)]),data])
                 data = {}
-                if getRelay(1) == 0: #Activate relay on startup
-                    setRelay(1,1)
                 if int(time.time()%86400) < 2 and int(time.time()%86400) > 0: #Turn relay off once each midnight to restart anemometer
                     setRelay(1,0)
+                    print time.time()," Relay has been turned off..."
                     time.sleep(1)
                     setRelay(1,1)
+                    print time.time()," and on again. Now reapplying settings:"
+                    time.sleep(1)
+                    try:
+                        Pyro.write_register(37,5,unit=4) #Set baudrate to 38400
+                        time.sleep(0.2)
+                        Pyro.write_register(36,4,unit=4) #Set address to 4
+                        time.sleep(0.2)
+                        Pyro.write_register(9,0,unit=4) #Turn off alarm
+                        time.sleep(0.2)
+                        Pyro.write_register(12,0,unit=4) #Turn off alarm
+                        time.sleep(0.2)
+                        Pyro.write_register(19,0,unit=4) #Turn off alarm
+                        time.sleep(0.2)
+                        Pyro.write_register(22,0,unit=4) #Turn off alarm
+                        time.sleep(0.2)
+                        Pyro.write_register(38,2,unit=4) #Set even parity
+                        time.sleep(0.2)
+                        Pyro.write_register(29,3,unit=4) #Set m/s
+                        time.sleep(0.2)
+                        Pyro.write_register(33,188,unit=4) #Set offset 188 deg
+                        time.sleep(0.2)
+                        Pyro.write_register(39,1,unit=4) #Activate settings
+                        time.sleep(0.2)
+                        print "Done."
+                    except Exception as e:
+                        print time.time(),"Failed to set modbus settings for anemometer 4.",e
+                        pass
             except (AttributeError,OSError,IndexError) as e:
                 data["dir"]=0
                 data["speed"]=0
