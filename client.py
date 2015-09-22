@@ -543,12 +543,15 @@ def read_modbus(q,reply_q):
                 data["error"] = False
                 reply_q.put([''.join(["anemo",str(addr)]),data])
                 data = {}
-            except (AttributeError,OSError,IndexError,modbus_tk.modbus.ModbusError) as e:
-                print time.time(),"Anemometer 1 is not responding, reset it...",
-                setRelay(1,0)
-                time.sleep(1)
-                setRelay(1,1)
-                time.sleep(4)
+            except (AttributeError,OSError,IndexError,modbus_tk.modbus.ModbusError,modbus_tk.modbus.ModbusInvalidResponseError) as e:
+                try:
+                    print time.time(),"Anemometer 1 is not responding, reset it...",
+                    setRelay(1,0)
+                    time.sleep(1)
+                    setRelay(1,1)
+                    time.sleep(4)
+                except modbus_tk.modbus.ModbusInvalidResponseError as mir:
+                    print time.time(),"invalid response",mir
                 print "done."
                 data["dir"]=0
                 data["speed"]=0
@@ -576,7 +579,7 @@ def read_modbus(q,reply_q):
                 data["error"] = False
                 reply_q.put([''.join(["anemo",str(addr)]),data])
                 data = {}
-            except (AttributeError,OSError,IndexError,modbus_tk.modbus.ModbusError) as e:
+            except (AttributeError,OSError,IndexError,modbus_tk.modbus.ModbusError, modbus_tk.modbus.ModbusInvalidResponseError) as e:
                 data["dir"]=0
                 data["speed"]=0
                 data["temph"]=0
@@ -603,7 +606,7 @@ def read_modbus(q,reply_q):
                 data["error"] = False
                 reply_q.put(["pyro",data])
                 data = {}
-            except (AttributeError,OSError,IndexError,modbus_tk.modbus.ModbusError) as e:
+            except (AttributeError,OSError,IndexError,modbus_tk.modbus.ModbusError,modbus_tk.modbus.ModbusInvalidResponseError) as e:
                 data["status"] = 0
                 data["radiance"] = 0
                 data["raw_radiance"] = 0
@@ -655,7 +658,7 @@ def read_modbus(q,reply_q):
                     #except Exception as e:
                         #print time.time(),"Failed to set modbus settings for anemometer 4.",e
                         #pass
-            except (AttributeError,OSError,IndexError,modbus_tk.modbus.ModbusError) as e:
+            except (AttributeError,OSError,IndexError,modbus_tk.modbus.ModbusError,modbus_tk.modbus.ModbusInvalidResponseError) as e:
                 data["dir"]=0
                 data["speed"]=0
                 data["error"] = True
