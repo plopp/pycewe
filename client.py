@@ -593,7 +593,7 @@ def read_modbus(q,reply_q):
                 #ans3 = Pyro.read_input_registers(0, 10, unit=int(addr))
                 ans3 = master.execute(int(addr), cst.READ_INPUT_REGISTERS, 0, 10)
                 data["status"] = ans3[3]
-                if ans3.registers[0] == 8:
+                if ans3[0] == 8:
                     #data["error_code"] = Pyro.read_input_registers(26,1,unit=3).registers[0]
                     data["error_code"] = master.execute(int(addr), cst.READ_INPUT_REGISTERS, 26, 1)
                 data["radiance"] = s16_to_int(ans3[5])/1.0
