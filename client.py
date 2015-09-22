@@ -879,7 +879,8 @@ def main():
         send_without_recv(s2,[SOH,"B0",ETX])
         s1.close()
         s2.close()
-        Pyro.close()
+        master.close()
+        #Pyro.close()
         print "Closed."
         sum = 0
         for i in times:
