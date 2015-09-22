@@ -501,7 +501,7 @@ def read_data(q,reply_q):
             reply_q.put(["wind",data])        
         #print "Power meter error"
     t1 = time.time()
-    print "Ethernet: Done (",name,") ",(t1-t0)
+    #print "Ethernet: Done (",name,") ",(t1-t0)
     q.task_done()
 
 def s16_to_int(s16):
@@ -665,7 +665,7 @@ def read_modbus(q,reply_q):
                 pass
             finally:
                 t1 = time.time()
-                print "Modbus: Done. ",(t1-t0)
+                #print "Modbus: Done. ",(t1-t0)
                 q.task_done()
 
 def read_modbus_pyro(q,reply_q):
@@ -862,14 +862,14 @@ def main():
                 #print "File done. Now storing in ram."
                 #print data
                 send_q.put(data)
-                print "Done."
+                #print "Done."
                 t1 = time.time()
                 total = t1-t0
                 #if (1-total)>0.05:
                 #    time.sleep(1-total)
                 now = time.time()
                 #times.append(now-t0)
-                print ".",total,' ',now
+                #print ".",total,' ',now
             except UnboundLocalError:
                 pass
             #send_to_db2(data)
