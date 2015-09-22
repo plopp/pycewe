@@ -43,7 +43,8 @@ couchlocal = None
 dblocal = None
 s = None
 
-timeoutModbus = 0.22
+timeoutModbus = 0.3
+#timeoutModbus = 0.22
 portName = '/dev/ttyUSB0'
 Pyro = Modbus(method='rtu', port=portName, baudrate=38400, timeout=timeoutModbus, stopbits = 1, parity = 'E')
 
