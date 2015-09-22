@@ -531,6 +531,12 @@ def read_modbus(q,reply_q):
                 reply_q.put([''.join(["anemo",str(addr)]),data])
                 data = {}
             except (AttributeError,OSError,IndexError) as e:
+                print time.time(),"Anemometer 1 is not responding, reset it...",
+                setRelay(1,0)
+                time.sleep(1)
+                setRelay(1,1)
+                time.sleep(4)
+                print "done."
                 data["dir"]=0
                 data["speed"]=0
                 data["temph"]=0
@@ -597,7 +603,7 @@ def read_modbus(q,reply_q):
                 if getRelay(1) == 0: #Activate relay on startup
                     print time.time()," Relay is off, setting it to on."
                     setRelay(1,1)
-                    time.sleep(1)
+                    time.sleep(5)
                 ans4 = Pyro.read_holding_registers(0, 2, unit=int(addr))
                 data["dir"]=ans4.registers[1]/1.0
                 data["speed"]=ans4.registers[0]/10.0
@@ -605,11 +611,12 @@ def read_modbus(q,reply_q):
                 reply_q.put([''.join(["anemo",str(addr)]),data])
                 data = {}
                 if int(time.time()%86400) < 2 and int(time.time()%86400) > 0: #Turn relay off once each midnight to restart anemometer
-                    setRelay(1,0)
-                    print time.time()," Relay has been turned off..."
-                    time.sleep(1)
-                    setRelay(1,1)
-                    print time.time()," and on again. Now reapplying settings:"
+                    #setRelay(1,0)
+                    #print time.time()," Relay has been turned off..."
+                    #time.sleep(1)
+                    #setRelay(1,1)
+                    #print time.time()," and on again. Now reapplying settings:"
+                    print "Now reapplying settings..."
                     time.sleep(1)
                     try:
                         Pyro.write_register(37,5,unit=4) #Set baudrate to 38400
