@@ -627,39 +627,34 @@ def read_modbus(q,reply_q):
                 data["error"] = False
                 reply_q.put([''.join(["anemo",str(addr)]),data])
                 data = {}
-                if int(time.time()%86400) < 2 and int(time.time()%86400) > 0: #Turn relay off once each midnight to restart anemometer
-                    #setRelay(1,0)
-                    #print time.time()," Relay has been turned off..."
+                #if int(time.time()%86400) < 2 and int(time.time()%86400) > 0:
+                    #print "Now reapplying settings..."
                     #time.sleep(1)
-                    #setRelay(1,1)
-                    #print time.time()," and on again. Now reapplying settings:"
-                    print "Now reapplying settings..."
-                    time.sleep(1)
-                    try:
-                        Pyro.write_register(37,5,unit=4) #Set baudrate to 38400
-                        time.sleep(0.2)
-                        Pyro.write_register(36,4,unit=4) #Set address to 4
-                        time.sleep(0.2)
-                        Pyro.write_register(9,0,unit=4) #Turn off alarm
-                        time.sleep(0.2)
-                        Pyro.write_register(12,0,unit=4) #Turn off alarm
-                        time.sleep(0.2)
-                        Pyro.write_register(19,0,unit=4) #Turn off alarm
-                        time.sleep(0.2)
-                        Pyro.write_register(22,0,unit=4) #Turn off alarm
-                        time.sleep(0.2)
-                        Pyro.write_register(38,2,unit=4) #Set even parity
-                        time.sleep(0.2)
-                        Pyro.write_register(29,3,unit=4) #Set m/s
-                        time.sleep(0.2)
-                        Pyro.write_register(33,188,unit=4) #Set offset 188 deg
-                        time.sleep(0.2)
-                        Pyro.write_register(39,1,unit=4) #Activate settings
-                        time.sleep(0.2)
-                        print "Done."
-                    except Exception as e:
-                        print time.time(),"Failed to set modbus settings for anemometer 4.",e
-                        pass
+                    #try:
+                        #Pyro.write_register(37,5,unit=4) #Set baudrate to 38400
+                        #time.sleep(0.2)
+                        #Pyro.write_register(36,4,unit=4) #Set address to 4
+                        #time.sleep(0.2)
+                        #Pyro.write_register(9,0,unit=4) #Turn off alarm
+                        #time.sleep(0.2)
+                        #Pyro.write_register(12,0,unit=4) #Turn off alarm
+                        #time.sleep(0.2)
+                        #Pyro.write_register(19,0,unit=4) #Turn off alarm
+                        #time.sleep(0.2)
+                        #Pyro.write_register(22,0,unit=4) #Turn off alarm
+                        #time.sleep(0.2)
+                        #Pyro.write_register(38,2,unit=4) #Set even parity
+                        #time.sleep(0.2)
+                        #Pyro.write_register(29,3,unit=4) #Set m/s
+                        #time.sleep(0.2)
+                        #Pyro.write_register(33,188,unit=4) #Set offset 188 deg
+                        #time.sleep(0.2)
+                        #Pyro.write_register(39,1,unit=4) #Activate settings
+                        #time.sleep(0.2)
+                        #print "Done."
+                    #except Exception as e:
+                        #print time.time(),"Failed to set modbus settings for anemometer 4.",e
+                        #pass
             except (AttributeError,OSError,IndexError) as e:
                 data["dir"]=0
                 data["speed"]=0
